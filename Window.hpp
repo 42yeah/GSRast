@@ -48,6 +48,10 @@ protected:
 
     FirstPersonCamera::Ptr _firstPersonPtr;
     bool _firstPersonMode;
-    glm::vec2 _prevCursorPos;
+    struct
+    {
+        glm::vec2 pos;
+        bool initialized;
+    } _prevCursorPos;
     glm::vec2 _cursorDelta;
 };
