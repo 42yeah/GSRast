@@ -3,10 +3,10 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <vector>
-#include <memory>
 #include <string>
 #include "WindowBase.hpp"
 #include "Config.hpp"
+#include "FirstPersonCamera.hpp"
 
 class Window : public WindowBase
 {
@@ -26,6 +26,16 @@ public:
     virtual void addDrawable(DrawBase::Ptr db) override;
     virtual void clearDrawables() override;
 
+    virtual int getWidth() const override;
+    virtual int getHeight() const override;
+
+    /**
+     * Window is capable of handling a firstPersonCamera itself.
+     */
+    void configureFirstPersonCamera();
+    void cursorPosCallback(double x, double y);
+    void keyCallback(int key, int scancode, int action, int mods);
+
 protected:
     Window(const std::string &window_name, int width, int height);
 
@@ -33,5 +43,11 @@ protected:
     int _w, _h;
     bool _valid;
     float _dt;
+    double _lastInstant;
     std::vector<DrawBase::Ptr> _drawables;
+
+    FirstPersonCamera::Ptr _firstPersonPtr;
+    bool _firstPersonMode;
+    glm::vec2 _prevCursorPos;
+    glm::vec2 _cursorDelta;
 };

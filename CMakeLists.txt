@@ -8,8 +8,27 @@ find_package(glm REQUIRED)
 add_subdirectory(deps)
 add_subdirectory(shaders)
 
-add_executable(gsrast main.cpp WindowBase.cpp Window.cpp DrawBase.cpp GSRasterWindow.cpp BufferGeo.cpp ShaderBase.cpp SimpleShader.cpp)
-target_link_libraries(gsrast PUBLIC
+set(SOURCES WindowBase.cpp
+    Window.cpp
+    DrawBase.cpp
+    BasicWindow.cpp
+    BufferGeo.cpp
+    ShaderBase.cpp
+    SimpleShader.cpp
+    CameraBase.cpp
+    FirstPersonCamera.cpp)
+
+add_executable(basic main.cpp ${SOURCES})
+target_link_libraries(basic PUBLIC
     glfw
     glm::glm
     glad)
+
+add_library(base ${SOURCES})
+target_include_directories(base INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(base PUBLIC
+    glfw
+    glm::glm
+    glad)
+
+add_subdirectory(apps)

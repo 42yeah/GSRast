@@ -4,6 +4,8 @@
 #include <string>
 #include "Config.hpp"
 
+class WindowBase;
+
 class ShaderBase
 {
 public:
@@ -11,6 +13,7 @@ public:
 
     ~ShaderBase();
 
+    virtual void update(const WindowBase &window);
     virtual void use();
     virtual bool valid() = 0;
 

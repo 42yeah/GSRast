@@ -4,6 +4,9 @@
 #include <memory>
 #include "DrawBase.hpp"
 #include "Config.hpp"
+#include "CameraBase.hpp"
+
+class CameraBase;
 
 class WindowBase
 {
@@ -21,6 +24,13 @@ public:
     virtual void addDrawable(std::shared_ptr<DrawBase>) = 0;
     virtual void clearDrawables() = 0;
 
+    virtual int getWidth() const = 0;
+    virtual int getHeight() const = 0;
+    CameraBase::Ptr getCamera() const;
+    void setCamera(CameraBase::Ptr camera);
+
 protected:
     WindowBase();
+
+    CameraBase::Ptr _camera;
 };

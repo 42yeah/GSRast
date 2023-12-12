@@ -1,10 +1,10 @@
-#include "GSRasterWindow.hpp"
+#include "BasicWindow.hpp"
 #include "BufferGeo.hpp"
 #include "Window.hpp"
 #include "SimpleShader.hpp"
 
 
-GSRasterWindow::GSRasterWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WINDOW_H)
+BasicWindow::BasicWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WINDOW_H)
 {
     SimpleShader::Ptr simpleShader = std::make_shared<SimpleShader>();
 
@@ -19,7 +19,7 @@ GSRasterWindow::GSRasterWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAUL
     addDrawable(triangle);
 }
 
-GSRasterWindow::~GSRasterWindow()
+BasicWindow::~BasicWindow()
 {
 
 }

@@ -3,15 +3,6 @@
 #include <fstream>
 #include <sstream>
 
-
-ShaderBase::~ShaderBase()
-{
-    if (_valid)
-    {
-        glDeleteProgram(_program);
-    }
-}
-
 GLuint ShaderBase::compile(GLuint type, const std::string &path) {
     std::ifstream reader(path);
     if (!reader.good()) {
@@ -56,6 +47,20 @@ GLuint ShaderBase::link(GLuint vertexShader, GLuint fragmentShader) {
     return program;
 }
 
+
+ShaderBase::~ShaderBase()
+{
+    if (_valid)
+    {
+        glDeleteProgram(_program);
+    }
+}
+
+void ShaderBase::update(const WindowBase &window)
+{
+
+}
+
 void ShaderBase::use()
 {
     if (_valid)
@@ -66,8 +71,8 @@ void ShaderBase::use()
 
 ShaderBase::ShaderBase(const std::string &vertexShaderPath, const std::string &fragmentShaderPath)
 {
-    GLuint vs = ShaderBase::compile(GL_VERTEX_SHADER, "shaders/simple/vertex.glsl");
-    GLuint fs = ShaderBase::compile(GL_FRAGMENT_SHADER, "shaders/simple/fragment.glsl");
+    GLuint vs = ShaderBase::compile(GL_VERTEX_SHADER, vertexShaderPath);
+    GLuint fs = ShaderBase::compile(GL_FRAGMENT_SHADER, fragmentShaderPath);
 
     if (vs == GL_NONE || fs == GL_NONE)
     {
