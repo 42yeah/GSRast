@@ -81,3 +81,27 @@ glm::vec3 FirstPersonCamera::getRight() const
 {
     return _right;
 }
+
+glm::vec3 FirstPersonCamera::getPosition() const
+{
+    return _position;
+}
+
+void FirstPersonCamera::setPosition(const glm::vec3 &pos)
+{
+    _position = pos;
+}
+
+void FirstPersonCamera::lookAt(const glm::vec3 &point)
+{
+    glm::vec3 dir = glm::normalize(point - _position);
+    _ypr.y = asinf(dir.y);
+    float yaw1 = asinf(dir.x / cosf(_ypr.y));
+    float yaw2 = acosf(dir.z / cosf(_ypr.y));
+    if (fabs(yaw1 - yaw2) > EPSILON)
+    {
+        _ypr.x += PI_F;
+    }
+    // We don't support rolls.
+    _ypr.z = 0.0f;
+}

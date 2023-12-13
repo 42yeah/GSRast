@@ -46,7 +46,7 @@ Window::Window(const std::string &window_name, int width, int height) : WindowBa
     _h = height;
     _valid = true;
     _lastInstant = glfwGetTime();
-    _firstPersonPtr = nullptr;
+    _firstPersonCamera = nullptr;
     _firstPersonMode = false;
     _cursorDelta = glm::vec2(0.0f, 0.0f);
     _prevCursorPos.pos = glm::vec2(-1.0f, -1.0f);
@@ -94,24 +94,23 @@ void Window::pollEvents()
     _dt = (float) (thisInstant - _lastInstant);
     _lastInstant = thisInstant;
 
-    if (_firstPersonMode)
+    if (_firstPersonMode && _firstPersonCamera)
     {
-        FirstPersonCamera::Ptr fpCam = std::dynamic_pointer_cast<FirstPersonCamera>(_camera);
         if (glfwGetKey(_window, GLFW_KEY_W))
         {
-            fpCam->applyMotion(fpCam->getFront() * _dt);
+            _firstPersonCamera->applyMotion(_firstPersonCamera->getFront() * _dt);
         }
         if (glfwGetKey(_window, GLFW_KEY_A))
         {
-            fpCam->applyMotion(-fpCam->getRight() * _dt);
+            _firstPersonCamera->applyMotion(-_firstPersonCamera->getRight() * _dt);
         }
         if (glfwGetKey(_window, GLFW_KEY_S))
         {
-            fpCam->applyMotion(-fpCam->getFront() * _dt);
+            _firstPersonCamera->applyMotion(-_firstPersonCamera->getFront() * _dt);
         }
         if (glfwGetKey(_window, GLFW_KEY_D))
         {
-            fpCam->applyMotion(fpCam->getRight() * _dt);
+            _firstPersonCamera->applyMotion(_firstPersonCamera->getRight() * _dt);
         }
     }
 
@@ -186,20 +185,18 @@ void Window::cursorPosCallback(double x, double y)
     _cursorDelta = thisCursorPos - _prevCursorPos.pos;
     _prevCursorPos.pos = thisCursorPos;
 
-    if (!_camera || !_firstPersonMode)
+    if (!_camera || !_firstPersonMode || !_firstPersonCamera)
     {
         return;
     }
-    // This WILL go wrong if the camera is not FP cam.
-    FirstPersonCamera::Ptr fpCam = std::dynamic_pointer_cast<FirstPersonCamera>(_camera);
-    fpCam->applyDelta(_cursorDelta.x, _cursorDelta.y);
+    _firstPersonCamera->applyDelta(_cursorDelta.x, _cursorDelta.y);
 }
 
 void Window::configureFirstPersonCamera()
 {
-    _firstPersonPtr = std::make_shared<FirstPersonCamera>();
+    _firstPersonCamera = std::make_shared<FirstPersonCamera>();
     _firstPersonMode = true;
-    setCamera(_firstPersonPtr);
+    setCamera(_firstPersonCamera);
     glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     _cursorDelta = glm::vec2(0.0f, 0.0f);
     _prevCursorPos.pos = glm::vec2(-1.0f, -1.0f);

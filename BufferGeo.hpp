@@ -13,7 +13,7 @@ public:
     BufferGeo();
     ~BufferGeo();
 
-    void configure(float *data, int numVerts, int dataSize, ShaderBase::Ptr shader);
+    virtual void configure(float *data, int numVerts, int dataSize, ShaderBase::Ptr shader);
 
     virtual void draw() override;
 

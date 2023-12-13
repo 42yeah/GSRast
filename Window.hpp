@@ -46,7 +46,7 @@ protected:
     double _lastInstant;
     std::vector<DrawBase::Ptr> _drawables;
 
-    FirstPersonCamera::Ptr _firstPersonPtr;
+    FirstPersonCamera::Ptr _firstPersonCamera;
     bool _firstPersonMode;
     struct
     {

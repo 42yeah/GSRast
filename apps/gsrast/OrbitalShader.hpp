@@ -12,11 +12,12 @@ public:
 
     OrbitalShader(CameraBase::Ptr camera);
 
-    virtual void use() override;
+    virtual void use(const DrawBase &draw) override;
     virtual bool valid() override;
 
 protected:
     CameraBase::Ptr _camera;
+    GLuint _modelPos;
     GLuint _perspectivePos;
     GLuint _viewPos;
 };

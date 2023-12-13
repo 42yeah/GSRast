@@ -10,14 +10,16 @@ OrbitalShader::OrbitalShader(CameraBase::Ptr camera) : ShaderBase("shaders/orbit
     _camera = camera;
     if (_valid)
     {
+        _modelPos = glGetUniformLocation(_program, "model");
         _viewPos = glGetUniformLocation(_program, "view");
         _perspectivePos = glGetUniformLocation(_program, "perspective");
     }
 }
 
-void OrbitalShader::use()
+void OrbitalShader::use(const DrawBase &draw)
 {
     glUseProgram(_program);
+    glUniformMatrix4fv(_modelPos, 1, GL_FALSE, glm::value_ptr(draw.getModelMatrix()));
     glUniformMatrix4fv(_viewPos, 1, GL_FALSE, glm::value_ptr(_camera->getView()));
     glUniformMatrix4fv(_perspectivePos, 1, GL_FALSE, glm::value_ptr(_camera->getPerspective()));
 }

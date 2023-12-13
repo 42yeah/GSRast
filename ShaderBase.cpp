@@ -61,7 +61,7 @@ void ShaderBase::update(const WindowBase &window)
 
 }
 
-void ShaderBase::use()
+void ShaderBase::use(const DrawBase &draw)
 {
     if (_valid)
     {

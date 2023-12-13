@@ -29,3 +29,8 @@ const glm::mat4 &DrawBase::getModelMatrix() const
 {
     return _model;
 }
+
+BBox DrawBase::getBBox() const
+{
+    return _bbox;
+}

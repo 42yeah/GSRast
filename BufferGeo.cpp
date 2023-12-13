@@ -31,7 +31,7 @@ void BufferGeo::draw()
 {
     if (_shader)
     {
-        _shader->use();
+        _shader->use(*this);
     }
     else
     {

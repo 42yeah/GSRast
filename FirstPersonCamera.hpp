@@ -27,6 +27,9 @@ public:
     virtual void setSpeed(float speed);
     virtual glm::vec3 getFront() const;
     virtual glm::vec3 getRight() const;
+    virtual glm::vec3 getPosition() const;
+    virtual void setPosition(const glm::vec3 &pos);
+    void lookAt(const glm::vec3 &point);
 
 protected:
     glm::vec3 _position, _front, _right;

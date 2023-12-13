@@ -3,6 +3,7 @@
 #include <string>
 #include <glm/glm.hpp>
 #include "Config.hpp"
+#include "BBox.hpp"
 
 // DrawBase refers to stuffs that can be drawn on screen.
 class DrawBase
@@ -14,8 +15,9 @@ public:
 
     DrawBase(const DrawBase &) = delete; // there should not be a copy constructor available
 
-    void setModelMatrix(const glm::mat4 &mat);
-    const glm::mat4 &getModelMatrix() const;
+    virtual void setModelMatrix(const glm::mat4 &mat);
+    virtual const glm::mat4 &getModelMatrix() const;
+    virtual BBox getBBox() const;
 
 protected:
     DrawBase(const std::string &name);
@@ -23,4 +25,5 @@ protected:
     std::string _objName;
     int _objId;
     glm::mat4 _model;
+    BBox _bbox;
 };

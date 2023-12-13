@@ -1,7 +1,7 @@
 #include "GSRastWindow.hpp"
-#include "BufferGeo.hpp"
 #include "Window.hpp"
 #include "Config.hpp"
+#include "GSPointCloud.hpp"
 #include <memory>
 #include <iostream>
 
@@ -9,24 +9,20 @@ GSRastWindow::GSRastWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WI
 {
     configureFirstPersonCamera();
     _orbitalShader = std::make_shared<OrbitalShader>(getCamera());
-    float tri[] = {
-        0.0f, 0.0f, 0.0f,
-        1.0f, 0.0f, 0.0f,
-        0.0f, 1.0f, 0.0f
-    };
-    BufferGeo::Ptr bufGeo = std::make_shared<BufferGeo>();
-    bufGeo->configure(tri, 3, sizeof(tri), _orbitalShader);
 
-    float rect[] = {
-        -1.0f, -1.0f, -1.0f,
-        -0.2f, -0.3f, -0.4f,
-        0.5f, 0.1f, 0.2f
-    };
-    BufferGeo::Ptr buf2 = std::make_shared<BufferGeo>();
-    buf2->configure(rect, 3, sizeof(rect), _orbitalShader);
+    GSPointCloud::Ptr gsPtr = std::make_shared<GSPointCloud>();
+    if (!gsPtr->configureFromPly("data.ply", _orbitalShader))
+    {
+        std::cerr << "Could not load PC from PLY?" << std::endl;
+    }
+    else
+    {
+        addDrawable(gsPtr);
+        _firstPersonCamera->setPosition(gsPtr->getBBox().center - glm::vec3(0.0f, 0.0f, 5.0f));
+        _firstPersonCamera->lookAt(gsPtr->getBBox().center);
+    }
 
-    addDrawable(bufGeo);
-    addDrawable(buf2);
+    glPointSize(2.0f);
 }
 
 GSRastWindow::~GSRastWindow()

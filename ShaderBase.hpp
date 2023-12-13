@@ -5,6 +5,7 @@
 #include "Config.hpp"
 
 class WindowBase;
+class DrawBase;
 
 class ShaderBase
 {
@@ -14,7 +15,7 @@ public:
     ~ShaderBase();
 
     virtual void update(const WindowBase &window);
-    virtual void use();
+    virtual void use(const DrawBase &draw);
     virtual bool valid() = 0;
 
     static GLuint compile(GLuint type, const std::string &path);
