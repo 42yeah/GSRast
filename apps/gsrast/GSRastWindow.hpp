@@ -13,6 +13,8 @@ public:
     GSRastWindow();
     ~GSRastWindow();
 
+    virtual void keyCallback(int key, int scancode, int action, int mods) override;
+
 protected:
     PointCloudShader::Ptr _pcShader;
     SplatShader::Ptr _splatShader;

@@ -33,11 +33,15 @@ public:
      * Window is capable of handling a firstPersonCamera itself.
      */
     void configureFirstPersonCamera();
-    void cursorPosCallback(double x, double y);
-    void keyCallback(int key, int scancode, int action, int mods);
 
 protected:
     Window(const std::string &window_name, int width, int height);
+
+    static void glfwCursorPosCallback(GLFWwindow *window, double x, double y);
+    static void glfwKeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
+
+    virtual void cursorPosCallback(double x, double y);
+    virtual void keyCallback(int key, int scancode, int action, int mods);
 
     GLFWwindow *_window;
     int _w, _h;

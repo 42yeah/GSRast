@@ -12,10 +12,15 @@ public:
     virtual bool configureFromPly(const std::string &path, ShaderBase::Ptr shader) override;
 
     virtual void draw() override;
+    int getNumInstances() const;
 
     GSEllipsoids();
     ~GSEllipsoids();
 
+    static GLuint generatePointsUBO(const std::vector<glm::vec4> &points);
+
 protected:
     int _numInstances;
+    GLuint _positionUBO;
+    GLuint _scaleUBO;
 };

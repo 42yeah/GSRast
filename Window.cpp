@@ -53,6 +53,9 @@ Window::Window(const std::string &window_name, int width, int height) : WindowBa
     _prevCursorPos.initialized = false;
     reverseLookup[_window] = this;
 
+    glfwSetCursorPosCallback(_window, glfwCursorPosCallback);
+    glfwSetKeyCallback(_window, glfwKeyCallback);
+
     glEnable(GL_DEPTH_TEST);
 }
 
@@ -161,13 +164,13 @@ int Window::getHeight() const
     return _h;
 }
 
-void glfwCursorPosCallback(GLFWwindow *window, double x, double y)
+void Window::glfwCursorPosCallback(GLFWwindow *window, double x, double y)
 {
     Window *w = reverseLookup[window];
     w->cursorPosCallback(x, y);
 }
 
-void glfwKeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
+void Window::glfwKeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
     Window *w = reverseLookup[window];
     w->keyCallback(key, scancode, action, mods);
@@ -201,14 +204,11 @@ void Window::configureFirstPersonCamera()
     _cursorDelta = glm::vec2(0.0f, 0.0f);
     _prevCursorPos.pos = glm::vec2(-1.0f, -1.0f);
     _prevCursorPos.initialized = false;
-
-    glfwSetCursorPosCallback(_window, glfwCursorPosCallback);
-    glfwSetKeyCallback(_window, glfwKeyCallback);
 }
 
 void Window::keyCallback(int key, int scancode, int action, int mods)
 {
-    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
+    if (_firstPersonCamera && key == GLFW_KEY_SPACE && action == GLFW_PRESS)
     {
         _firstPersonMode = !_firstPersonMode;
         if (_firstPersonMode)

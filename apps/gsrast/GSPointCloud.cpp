@@ -84,7 +84,7 @@ std::unique_ptr<GSPC::GSSplats> GSPointCloud::loadFromSplatsPly(const std::strin
     std::string dummy;
 
     ss >> dummy >> dummy >> splats->numSplats;
-    splats->splats.reserve(splats->numSplats);
+    splats->splats.resize(splats->numSplats);
     std::cout << "Loading " << splats->numSplats << " splats.." << std::endl;
 
     while (std::getline(reader, dummy))

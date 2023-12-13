@@ -4,8 +4,10 @@
 #include "GSPointCloud.hpp"
 #include "apps/gsrast/GSEllipsoids.hpp"
 #include "apps/gsrast/SplatShader.hpp"
+#include <GLFW/glfw3.h>
 #include <memory>
 #include <iostream>
+
 
 GSRastWindow::GSRastWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WINDOW_H)
 {
@@ -45,4 +47,14 @@ GSRastWindow::GSRastWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WI
 GSRastWindow::~GSRastWindow()
 {
 
+}
+
+void GSRastWindow::keyCallback(int key, int scancode, int action, int mods)
+{
+    Window::keyCallback(key, scancode, action, mods);
+
+    if (key == GLFW_KEY_R && action == GLFW_PRESS)
+    {
+        std::cout << "OpenGL error: " << glGetError() << std::endl;
+    }
 }
