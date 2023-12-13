@@ -13,12 +13,6 @@ SplatShader::SplatShader(CameraBase::Ptr camera) : ShaderBase("shaders/splats/ve
         _modelPos = glGetUniformLocation(_program, "model");
         _viewPos = glGetUniformLocation(_program, "view");
         _perspectivePos = glGetUniformLocation(_program, "perspective");
-
-        int positionBlockPos = glGetUniformBlockIndex(_program, "splatPosition");
-        glUniformBlockBinding(_program, positionBlockPos, 0);
-
-        int scaleBlockPos = glGetUniformBlockIndex(_program, "splatScale");
-        glUniformBlockBinding(_program, scaleBlockPos, 1);
     }
 }
 

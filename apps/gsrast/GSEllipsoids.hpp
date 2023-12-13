@@ -17,10 +17,10 @@ public:
     GSEllipsoids();
     ~GSEllipsoids();
 
-    static GLuint generatePointsUBO(const std::vector<glm::vec4> &points);
+    static GLuint generatePointsSSBO(const std::vector<glm::vec4> &points);
 
 protected:
     int _numInstances;
-    GLuint _positionUBO;
-    GLuint _scaleUBO;
+    GLuint _positionSSBO;
+    GLuint _scaleSSBO;
 };

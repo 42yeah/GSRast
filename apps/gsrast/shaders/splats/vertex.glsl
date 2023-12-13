@@ -1,12 +1,12 @@
-#version 330 core
+#version 430
 
 layout (location = 0) in vec3 aPos;
 
-layout (std140) uniform splatPosition {
-    vec4 positions[100000];
+layout (std430, binding = 0) buffer splatPosition {
+    vec4 positions[];
 };
-layout (std140) uniform splatScale {
-    vec4 scales[100000];
+layout (std430, binding = 1) buffer splatScale {
+    vec4 scales[];
 };
 
 uniform mat4 model;

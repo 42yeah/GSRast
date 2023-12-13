@@ -73,7 +73,7 @@ bool GSEllipsoids::configureFromPly(const std::string &path, ShaderBase::Ptr sha
             const glm::vec3 &pos = splatPtr->splats[i].position;
             splatPosition.push_back(glm::vec4(pos.x, pos.y, pos.z, 1.0f));
         }
-        _positionUBO = generatePointsUBO(splatPosition);
+        _positionSSBO = generatePointsSSBO(splatPosition);
     }
 
     // configure UBO: scale
@@ -85,7 +85,7 @@ bool GSEllipsoids::configureFromPly(const std::string &path, ShaderBase::Ptr sha
             const glm::vec3 &scale = glm::vec3(splatPtr->splats[i].scale);
             splatsScale.push_back(glm::vec4(exp(scale.x), exp(scale.y), exp(scale.z), 1.0f));
         }
-        _scaleUBO = generatePointsUBO(splatsScale);
+        _scaleSSBO = generatePointsSSBO(splatsScale);
     }
 
     return true;
@@ -97,8 +97,8 @@ void GSEllipsoids::draw()
     if (_shader) _shader->use(*this);
 
     // Bind buffer bases.
-    glBindBufferBase(GL_UNIFORM_BUFFER, 0, _positionUBO);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 1, _scaleUBO);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, _positionSSBO);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, _scaleSSBO);
 
     glBindVertexArray(_vao);
     glDrawArraysInstanced(GL_TRIANGLES, 0, _numVerts, _numInstances);
@@ -112,28 +112,27 @@ int GSEllipsoids::getNumInstances() const
 GSEllipsoids::GSEllipsoids() : GSPointCloud()
 {
     _numInstances = 0;
-    _positionUBO = GL_NONE;
-    _scaleUBO = GL_NONE;
+    _positionSSBO = GL_NONE;
+    _scaleSSBO = GL_NONE;
 }
 
 GSEllipsoids::~GSEllipsoids()
 {
-    if (_positionUBO != GL_NONE)
+    if (_positionSSBO != GL_NONE)
     {
-        glDeleteBuffers(1, &_positionUBO);
+        glDeleteBuffers(1, &_positionSSBO);
     }
-    if (_scaleUBO != GL_NONE)
+    if (_scaleSSBO != GL_NONE)
     {
-        glDeleteBuffers(1, &_scaleUBO);
+        glDeleteBuffers(1, &_scaleSSBO);
     }
 }
 
-GLuint GSEllipsoids::generatePointsUBO(const std::vector<glm::vec4> &points)
+GLuint GSEllipsoids::generatePointsSSBO(const std::vector<glm::vec4> &points)
 {
     GLuint ret = GL_NONE;
-    glGenBuffers(1, &ret);
-    glBindBuffer(GL_UNIFORM_BUFFER, ret);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(glm::vec4) * points.size(), points.data(), GL_STATIC_DRAW);
+    glCreateBuffers(1, &ret);
+    glNamedBufferStorage(ret, sizeof(glm::vec4) * points.size(), points.data(), GL_MAP_READ_BIT);
 
     return ret;
 }
