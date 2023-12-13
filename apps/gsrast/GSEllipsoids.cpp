@@ -1,6 +1,56 @@
 #include "GSEllipsoids.hpp"
 #include <gl/gl.h>
 
+float cube[] = {
+    // Back
+    -0.5f, -0.5f, -0.5f,
+    0.5f, -0.5f, -0.5f,
+    0.5f, 0.5f, -0.5f,
+    0.5f, 0.5f, -0.5f,
+    -0.5f, 0.5f, -0.5f,
+    -0.5f, -0.5f, -0.5f,
+
+    // Front
+    -0.5f, -0.5f, 0.5f,
+    0.5f, -0.5f, 0.5f,
+    0.5f, 0.5f, 0.5f,
+    0.5f, 0.5f, 0.5f,
+    -0.5f, 0.5f, 0.5f,
+    -0.5f, -0.5f, 0.5f,
+
+    // Bottom
+    -0.5f, -0.5f, -0.5f,
+    0.5f, -0.5f, -0.5f,
+    0.5f, -0.5f, 0.5f,
+    0.5f, -0.5f, 0.5f,
+    -0.5f, -0.5f, 0.5f,
+    -0.5f, -0.5f, -0.5f,
+
+    // Top
+    -0.5f, 0.5f, -0.5f,
+    0.5f, 0.5f, -0.5f,
+    0.5f, 0.5f, 0.5f,
+    0.5f, 0.5f, 0.5f,
+    -0.5f, 0.5f, 0.5f,
+    -0.5f, 0.5f, -0.5f,
+
+    // Left
+    -0.5f, -0.5f, -0.5f,
+    -0.5f, 0.5f, -0.5f,
+    -0.5f, 0.5f, 0.5f,
+    -0.5f, 0.5f, 0.5f,
+    -0.5f, -0.5f, 0.5f,
+    -0.5f, -0.5f, -0.5f,
+
+    // Right
+    0.5f, -0.5f, -0.5f,
+    0.5f, 0.5f, -0.5f,
+    0.5f, 0.5f, 0.5f,
+    0.5f, 0.5f, 0.5f,
+    0.5f, -0.5f, 0.5f,
+    0.5f, -0.5f, -0.5f,
+};
+
 bool GSEllipsoids::configureFromPly(const std::string &path, ShaderBase::Ptr shader)
 {
     const auto splatPtr = loadFromSplatsPly(path);
@@ -8,58 +58,9 @@ bool GSEllipsoids::configureFromPly(const std::string &path, ShaderBase::Ptr sha
     {
         return false;
     }
-    _numInstances = 10;
-
-    // make a cube.
-    float cube[] = {
-        // Back
-        -0.5f, -0.5f, -0.5f,
-        0.5f, -0.5f, -0.5f,
-        0.5f, 0.5f, -0.5f,
-        0.5f, 0.5f, -0.5f,
-        -0.5f, 0.5f, -0.5f,
-        -0.5f, -0.5f, -0.5f,
-
-        // Front
-        -0.5f, -0.5f, 0.5f,
-        0.5f, -0.5f, 0.5f,
-        0.5f, 0.5f, 0.5f,
-        0.5f, 0.5f, 0.5f,
-        -0.5f, 0.5f, 0.5f,
-        -0.5f, -0.5f, 0.5f,
-
-        // Bottom
-        -0.5f, -0.5f, -0.5f,
-        0.5f, -0.5f, -0.5f,
-        0.5f, -0.5f, 0.5f,
-        0.5f, -0.5f, 0.5f,
-        -0.5f, -0.5f, 0.5f,
-        -0.5f, -0.5f, -0.5f,
-
-        // Top
-        -0.5f, 0.5f, -0.5f,
-        0.5f, 0.5f, -0.5f,
-        0.5f, 0.5f, 0.5f,
-        0.5f, 0.5f, 0.5f,
-        -0.5f, 0.5f, 0.5f,
-        -0.5f, 0.5f, -0.5f,
-
-        // Left
-        -0.5f, -0.5f, -0.5f,
-        -0.5f, 0.5f, -0.5f,
-        -0.5f, 0.5f, 0.5f,
-        -0.5f, 0.5f, 0.5f,
-        -0.5f, -0.5f, 0.5f,
-        -0.5f, -0.5f, -0.5f,
-
-        // Right
-        0.5f, -0.5f, -0.5f,
-        0.5f, 0.5f, -0.5f,
-        0.5f, 0.5f, 0.5f,
-        0.5f, 0.5f, 0.5f,
-        0.5f, -0.5f, 0.5f,
-        0.5f, -0.5f, -0.5f,
-    };
+    _numInstances = splatPtr->numSplats;
+    _bbox.reset();
+    _center = glm::vec3(0.0f);
 
     _numVerts = 36;
     configure(cube, _numVerts, sizeof(cube), shader);
@@ -71,7 +72,13 @@ bool GSEllipsoids::configureFromPly(const std::string &path, ShaderBase::Ptr sha
         for (int i = 0; i < splatPtr->splats.size(); i++)
         {
             const glm::vec3 &pos = splatPtr->splats[i].position;
+            _bbox.enclose(pos);
+            _center += pos;
             splatPosition.push_back(glm::vec4(pos.x, pos.y, pos.z, 1.0f));
+        }
+        if (splatPtr->splats.size() > 0)
+        {
+            _center /= splatPtr->splats.size();
         }
         _positionSSBO = generatePointsSSBO(splatPosition);
     }

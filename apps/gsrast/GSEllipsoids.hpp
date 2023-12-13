@@ -2,6 +2,7 @@
 
 #include "Config.hpp"
 #include "GSPointCloud.hpp"
+#include <glm/glm.hpp>
 
 
 class GSEllipsoids : public GSPointCloud

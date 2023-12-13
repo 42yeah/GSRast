@@ -16,4 +16,9 @@
 #define PI 3.14159265
 #define EPSILON 0.001f
 
+// Some default camera params
+#define DEFAULT_NEAR 0.001f
+#define DEFAULT_FAR 100.0f
+#define DEFAULT_FOV glm::radians(45.0f)
+
 std::ostream &operator<<(std::ostream &os, const glm::vec3 &p);

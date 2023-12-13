@@ -17,9 +17,15 @@ bool GSPointCloud::configureFromPly(const std::string &path, ShaderBase::Ptr sha
     }
     // initialize bounding box.
     _bbox.reset();
+    _center = glm::vec3(0.0f);
     for (const auto &sp : splatPtr->splats)
     {
         _bbox.enclose(sp.position);
+        _center += sp.position;
+    }
+    if (splatPtr->splats.size() > 0)
+    {
+        _center /= splatPtr->splats.size();
     }
 
     _numVerts = splatPtr->numSplats;
@@ -52,9 +58,14 @@ void GSPointCloud::draw()
     glDrawArrays(GL_POINTS, 0, _numVerts);
 }
 
+const glm::vec3 &GSPointCloud::getCenter() const
+{
+    return _center;
+}
+
 GSPointCloud::GSPointCloud() : BufferGeo()
 {
-
+    _center = glm::vec3(0.0f);
 }
 
 GSPointCloud::~GSPointCloud()

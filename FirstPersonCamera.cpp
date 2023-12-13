@@ -4,13 +4,12 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <cmath>
-#include <iostream>
 
 
 FirstPersonCamera::FirstPersonCamera() : _position(0.0f, 0.0f, -1.0f),
     _front(0.0f, 0.0f, 1.0f), _right(1.0f, 0.0f, 0.0f),
     _view(1.0f), _perspective(1.0f), _ypr(0.0f, 0.0f, 0.0f),
-    _sensitivity(0.01f), _speed(1.0f)
+    _sensitivity(0.01f), _speed(1.0f), _near(DEFAULT_NEAR), _far(DEFAULT_FAR), _fov(DEFAULT_FOV)
 {
 
 }
@@ -33,7 +32,7 @@ void FirstPersonCamera::update(const WindowBase &window)
     _right = glm::normalize(glm::cross(_front, glm::vec3(0.0f, 1.0f, 0.0f)));
     _view = glm::lookAt(_position, _position + _front, glm::vec3(0.0f, 1.0f, 0.0f));
     float aspect = (float) window.getWidth() / window.getHeight();
-    _perspective = glm::perspective(glm::radians(45.0f), aspect, 0.01f, 100.0f);
+    _perspective = glm::perspective(_fov, aspect, _near, _far);
 }
 
 void FirstPersonCamera::applyMotion(glm::vec3 dir)
@@ -104,4 +103,15 @@ void FirstPersonCamera::lookAt(const glm::vec3 &point)
     }
     // We don't support rolls.
     _ypr.z = 0.0f;
+}
+
+void FirstPersonCamera::setNearFar(float near, float far)
+{
+    _near = near;
+    _far = far;
+}
+
+void FirstPersonCamera::setFOV(float fov)
+{
+    _fov = fov;
 }

@@ -13,6 +13,7 @@ public:
     virtual bool configureFromPly(const std::string &path, ShaderBase::Ptr shader);
 
     virtual void draw() override;
+    const glm::vec3 &getCenter() const;
 
     GSPointCloud();
     ~GSPointCloud();
@@ -43,6 +44,8 @@ protected:
         int numSplats;
         std::vector<RichPoint> splats;
     };
+
+    glm::vec3 _center;
 
     std::unique_ptr<GSSplats> loadFromSplatsPly(const std::string &path);
 };

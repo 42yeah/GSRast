@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Config.hpp"
 #include "CameraBase.hpp"
 #include <glm/glm.hpp>
 
@@ -30,10 +31,12 @@ public:
     virtual glm::vec3 getPosition() const;
     virtual void setPosition(const glm::vec3 &pos);
     void lookAt(const glm::vec3 &point);
+    void setNearFar(float near, float far);
+    void setFOV(float fov);
 
 protected:
     glm::vec3 _position, _front, _right;
     glm::mat4 _view, _perspective;
     glm::vec3 _ypr; // yaw pitch roll
-    float _sensitivity, _speed;
+    float _sensitivity, _speed, _near, _far, _fov;
 };
