@@ -24,8 +24,8 @@ GSRastWindow::GSRastWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WI
     // else
     // {
     //     addDrawable(gsPtr);
-    //     _firstPersonCamera->setPosition(gsPtr->getBBox().center - glm::vec3(0.0f, 0.0f, 5.0f));
-    //     _firstPersonCamera->lookAt(gsPtr->getBBox().center);
+    //     _firstPersonCamera->setPosition(gsPtr->getCenter() - glm::vec3(0.0f, 0.0f, 5.0f));
+    //     _firstPersonCamera->lookAt(gsPtr->getCenter());
     // }
 
     // Draw ellipsoids
@@ -44,6 +44,7 @@ GSRastWindow::GSRastWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WI
         _firstPersonCamera->setPosition(gsPtr->getCenter() - glm::vec3(0.0f, 0.0f, 5.0f));
         _firstPersonCamera->lookAt(gsPtr->getCenter());
         _firstPersonCamera->setNearFar(0.001f * far, far);
+        _firstPersonCamera->setSpeed(far * 0.1f);
     }
 
     glPointSize(2.0f);

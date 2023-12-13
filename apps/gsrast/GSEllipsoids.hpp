@@ -24,4 +24,6 @@ protected:
     int _numInstances;
     GLuint _positionSSBO;
     GLuint _scaleSSBO;
+    GLuint _colorSSBO;
+    GLuint _quatSSBO;
 };
