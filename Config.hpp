@@ -5,6 +5,8 @@
 #define WINDOW_TITLE "GSRaster"
 
 #include <memory>
+#include <iostream>
+#include <glm/glm.hpp>
 
 #define CLASS_PTRS(CLASS_NAME) \
     using Ptr = std::shared_ptr<CLASS_NAME>;
@@ -13,3 +15,5 @@
 #define PI_F 3.1415f
 #define PI 3.14159265
 #define EPSILON 0.001f
+
+std::ostream &operator<<(std::ostream &os, const glm::vec3 &p);

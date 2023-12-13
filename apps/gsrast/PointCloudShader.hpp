@@ -5,12 +5,12 @@
 #include "CameraBase.hpp"
 
 
-class OrbitalShader : public ShaderBase
+class PointCloudShader : public ShaderBase
 {
 public:
-    CLASS_PTRS(OrbitalShader)
+    CLASS_PTRS(PointCloudShader)
 
-    OrbitalShader(CameraBase::Ptr camera);
+    PointCloudShader(CameraBase::Ptr camera);
 
     virtual void use(const DrawBase &draw) override;
     virtual bool valid() override;

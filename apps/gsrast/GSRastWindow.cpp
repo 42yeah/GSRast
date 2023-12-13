@@ -8,10 +8,10 @@
 GSRastWindow::GSRastWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WINDOW_H)
 {
     configureFirstPersonCamera();
-    _orbitalShader = std::make_shared<OrbitalShader>(getCamera());
+    _pcShader = std::make_shared<PointCloudShader>(getCamera());
 
     GSPointCloud::Ptr gsPtr = std::make_shared<GSPointCloud>();
-    if (!gsPtr->configureFromPly("data.ply", _orbitalShader))
+    if (!gsPtr->configureFromPly("data.ply", _pcShader))
     {
         std::cerr << "Could not load PC from PLY?" << std::endl;
     }

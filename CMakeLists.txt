@@ -17,7 +17,8 @@ set(SOURCES WindowBase.cpp
     SimpleShader.cpp
     CameraBase.cpp
     FirstPersonCamera.cpp
-    BBox.cpp)
+    BBox.cpp
+    Config.cpp)
 
 add_executable(basic main.cpp ${SOURCES})
 target_link_libraries(basic PUBLIC

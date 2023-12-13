@@ -1,11 +1,11 @@
-#include "OrbitalShader.hpp"
+#include "PointCloudShader.hpp"
 #include "CameraBase.hpp"
 #include "ShaderBase.hpp"
 #include "WindowBase.hpp"
 #include <glm/gtc/type_ptr.hpp>
 
 
-OrbitalShader::OrbitalShader(CameraBase::Ptr camera) : ShaderBase("shaders/orbital/vertex.glsl", "shaders/orbital/fragment.glsl")
+PointCloudShader::PointCloudShader(CameraBase::Ptr camera) : ShaderBase("shaders/pointcloud/vertex.glsl", "shaders/pointcloud/fragment.glsl")
 {
     _camera = camera;
     if (_valid)
@@ -16,7 +16,7 @@ OrbitalShader::OrbitalShader(CameraBase::Ptr camera) : ShaderBase("shaders/orbit
     }
 }
 
-void OrbitalShader::use(const DrawBase &draw)
+void PointCloudShader::use(const DrawBase &draw)
 {
     glUseProgram(_program);
     glUniformMatrix4fv(_modelPos, 1, GL_FALSE, glm::value_ptr(draw.getModelMatrix()));
@@ -24,7 +24,7 @@ void OrbitalShader::use(const DrawBase &draw)
     glUniformMatrix4fv(_perspectivePos, 1, GL_FALSE, glm::value_ptr(_camera->getPerspective()));
 }
 
-bool OrbitalShader::valid()
+bool PointCloudShader::valid()
 {
     return _valid;
 }

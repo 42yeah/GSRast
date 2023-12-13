@@ -2,7 +2,7 @@
 
 #include "Config.hpp"
 #include "Window.hpp"
-#include "OrbitalShader.hpp"
+#include "PointCloudShader.hpp"
 
 class GSRastWindow : public Window
 {
@@ -13,5 +13,5 @@ public:
     ~GSRastWindow();
 
 protected:
-    OrbitalShader::Ptr _orbitalShader;
+    PointCloudShader::Ptr _pcShader;
 };
