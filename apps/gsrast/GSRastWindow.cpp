@@ -43,7 +43,7 @@ GSRastWindow::GSRastWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WI
         addDrawable(gsPtr);
         _firstPersonCamera->setPosition(gsPtr->getCenter() - glm::vec3(0.0f, 0.0f, 5.0f));
         _firstPersonCamera->lookAt(gsPtr->getCenter());
-        _firstPersonCamera->setNearFar(0.001f * far, far);
+        _firstPersonCamera->setNearFar(far * 0.001f, far);
         _firstPersonCamera->setSpeed(far * 0.1f);
     }
 
@@ -62,5 +62,13 @@ void GSRastWindow::keyCallback(int key, int scancode, int action, int mods)
     if (key == GLFW_KEY_R && action == GLFW_PRESS)
     {
         std::cout << "OpenGL error: " << glGetError() << std::endl;
+    }
+    if (key == GLFW_KEY_DOWN && action == GLFW_PRESS)
+    {
+        _firstPersonCamera->setSpeed(_firstPersonCamera->getSpeed() * 0.5f);
+    }
+    if (key == GLFW_KEY_UP && action == GLFW_PRESS)
+    {
+        _firstPersonCamera->setSpeed(_firstPersonCamera->getSpeed() * 2.0f);
     }
 }
