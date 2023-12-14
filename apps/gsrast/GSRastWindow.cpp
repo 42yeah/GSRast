@@ -63,4 +63,12 @@ void GSRastWindow::keyCallback(int key, int scancode, int action, int mods)
     {
         std::cout << "OpenGL error: " << glGetError() << std::endl;
     }
+    if (key == GLFW_KEY_DOWN && action == GLFW_PRESS)
+    {
+        _firstPersonCamera->setSpeed(_firstPersonCamera->getSpeed() * 0.5f);
+    }
+    if (key == GLFW_KEY_UP && action == GLFW_PRESS)
+    {
+        _firstPersonCamera->setSpeed(_firstPersonCamera->getSpeed() * 2.0f);
+    }
 }
