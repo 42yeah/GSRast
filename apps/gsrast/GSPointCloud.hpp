@@ -47,5 +47,5 @@ protected:
 
     glm::vec3 _center;
 
-    std::unique_ptr<GSSplats> loadFromSplatsPly(const std::string &path);
+    static std::unique_ptr<GSSplats> loadFromSplatsPly(const std::string &path);
 };

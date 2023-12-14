@@ -71,17 +71,17 @@ void FirstPersonCamera::setSpeed(float speed)
     _speed = speed;
 }
 
-glm::vec3 FirstPersonCamera::getFront() const
+const glm::vec3 &FirstPersonCamera::getFront() const
 {
     return _front;
 }
 
-glm::vec3 FirstPersonCamera::getRight() const
+const glm::vec3 &FirstPersonCamera::getRight() const
 {
     return _right;
 }
 
-glm::vec3 FirstPersonCamera::getPosition() const
+const glm::vec3 &FirstPersonCamera::getPosition() const
 {
     return _position;
 }

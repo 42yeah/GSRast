@@ -26,9 +26,9 @@ public:
     virtual void setYPR(const glm::vec3 &ypr);
     virtual float getSpeed() const;
     virtual void setSpeed(float speed);
-    virtual glm::vec3 getFront() const;
-    virtual glm::vec3 getRight() const;
-    virtual glm::vec3 getPosition() const;
+    virtual const glm::vec3 &getFront() const override;
+    virtual const glm::vec3 &getRight() const;
+    virtual const glm::vec3 &getPosition() const override;
     virtual void setPosition(const glm::vec3 &pos);
     void lookAt(const glm::vec3 &point);
     void setNearFar(float near, float far);

@@ -101,7 +101,7 @@ bool GSEllipsoids::configureFromPly(const std::string &path, ShaderBase::Ptr sha
 
     // Configure SSBO: quaternion
     // https://automaticaddison.com/how-to-convert-a-quaternion-to-a-rotation-matrix/
-    // NOTE to self: if it gets too lag in the future, convert this to a rotation matrix
+    // NOTE to self: if it gets too laggy in the future, convert this to a rotation matrix
     for (int i = 0; i < splatPtr->splats.size(); i++)
     {
         points[i] = splatPtr->splats[i].rotation;

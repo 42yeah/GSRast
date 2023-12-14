@@ -19,6 +19,14 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 perspective;
 
+out vec3 position;
+out vec3 ellipsoidCenter;
+out vec3 ellipsoidScale;
+out mat3 ellipsoidRot;
+out mat4 vModel;
+out mat4 vView;
+out mat4 vPerspective;
+
 out vec3 color;
 
 mat3 quatToMat(vec4 q) {
@@ -28,10 +36,22 @@ mat3 quatToMat(vec4 q) {
 }
 
 void main() {
-    vec3 scaled = vec3(scales[gl_InstanceID]) * aPos;
+    vec3 scale = vec3(scales[gl_InstanceID]);
+    vec3 scaled = scale * aPos;
     mat3 rot = quatToMat(quats[gl_InstanceID]);
     vec3 rotated = rot * scaled;
     vec3 posOffset = rotated + vec3(positions[gl_InstanceID]);
-    gl_Position = perspective * view * model * vec4(posOffset, 1.0);
+    vec4 mPos = model * vec4(posOffset, 1.0);
+
+    position = vec3(mPos);
+    ellipsoidCenter = vec3(positions[gl_InstanceID]);
+    ellipsoidScale = scale;
+    ellipsoidRot = rot;
+
+    vModel = model;
+    vView = view;
+    vPerspective = perspective;
+
+    gl_Position = perspective * view * mPos;
     color = vec3(colors[gl_InstanceID]) * 0.2 + vec3(0.5, 0.5, 0.5);
 }

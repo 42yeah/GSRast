@@ -12,6 +12,8 @@ public:
 
     virtual const glm::mat4 &getView() const = 0;
     virtual const glm::mat4 &getPerspective() const = 0;
+    virtual const glm::vec3 &getPosition() const = 0;
+    virtual const glm::vec3 &getFront() const = 0;
     virtual void update(const WindowBase &window) = 0;
 
 protected:

@@ -22,5 +22,5 @@ public:
 protected:
     CameraBase::Ptr _camera;
     GLuint _modelPos, _viewPos, _perspectivePos;
-
+    GLuint _camPos, _frontPos;
 };
