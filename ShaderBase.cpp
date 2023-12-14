@@ -18,12 +18,12 @@ GLuint ShaderBase::compile(GLuint type, const std::string &path) {
     glCompileShader(shader);
     GLint state = GL_FALSE;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &state);
-    if (state == GL_FALSE) {
+    if (state == GL_FALSE || true) {
         char log[512] = {0};
         glGetShaderInfoLog(shader, sizeof(log), nullptr, log);
         std::cerr << "Failed to compile " << path << "?: " << log << std::endl;
-        glDeleteShader(shader);
-        return GL_NONE;
+        // glDeleteShader(shader);
+        // return GL_NONE;
     }
     return shader;
 }

@@ -51,6 +51,21 @@ float cube[] = {
     1.0f, -1.0f, -1.0f,
 };
 
+template<typename T>
+GLuint generatePointsSSBO(const std::vector<T> &points)
+{
+    GLuint ret = GL_NONE;
+    glCreateBuffers(1, &ret);
+    glNamedBufferStorage(ret, sizeof(T) * points.size(), points.data(), GL_MAP_READ_BIT);
+
+    return ret;
+}
+
+float sigmoid(float n)
+{
+    return 1.0f / (1.0f + exp(-n));
+}
+
 bool GSEllipsoids::configureFromPly(const std::string &path, ShaderBase::Ptr shader)
 {
     const auto splatPtr = loadFromSplatsPly(path);
@@ -66,7 +81,9 @@ bool GSEllipsoids::configureFromPly(const std::string &path, ShaderBase::Ptr sha
     configure(cube, _numVerts, sizeof(cube), shader);
 
     std::vector<glm::vec4> points;
+    std::vector<float> alphas;
     points.resize(splatPtr->numSplats);
+    alphas.resize(splatPtr->numSplats);
 
     // configure SSBO: position
     for (int i = 0; i < splatPtr->splats.size(); i++)
@@ -108,6 +125,12 @@ bool GSEllipsoids::configureFromPly(const std::string &path, ShaderBase::Ptr sha
     }
     _quatSSBO = generatePointsSSBO(points);
 
+    for (int i = 0; i < splatPtr->splats.size(); i++)
+    {
+        alphas[i] = sigmoid(splatPtr->splats[i].opacity);
+    }
+    _alphaSSBO = generatePointsSSBO(alphas);
+
     // The loaded model is somehow upside down; refer to GSPC for more detail
     _model = glm::scale(_model, glm::vec3(-1.0f, -1.0f, 1.0f));
 
@@ -124,6 +147,7 @@ void GSEllipsoids::draw()
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, _scaleSSBO);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, _colorSSBO);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, _quatSSBO);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, _alphaSSBO);
 
     glBindVertexArray(_vao);
     glDrawArraysInstanced(GL_TRIANGLES, 0, _numVerts, _numInstances);
@@ -141,6 +165,7 @@ GSEllipsoids::GSEllipsoids() : GSPointCloud()
     _scaleSSBO = GL_NONE;
     _colorSSBO = GL_NONE;
     _quatSSBO = GL_NONE;
+    _alphaSSBO = GL_NONE;
 }
 
 GSEllipsoids::~GSEllipsoids()
@@ -161,13 +186,9 @@ GSEllipsoids::~GSEllipsoids()
     {
         glDeleteBuffers(1, &_quatSSBO);
     }
+    if (_alphaSSBO != GL_NONE)
+    {
+        glDeleteBuffers(1, &_alphaSSBO);
+    }
 }
 
-GLuint GSEllipsoids::generatePointsSSBO(const std::vector<glm::vec4> &points)
-{
-    GLuint ret = GL_NONE;
-    glCreateBuffers(1, &ret);
-    glNamedBufferStorage(ret, sizeof(glm::vec4) * points.size(), points.data(), GL_MAP_READ_BIT);
-
-    return ret;
-}
