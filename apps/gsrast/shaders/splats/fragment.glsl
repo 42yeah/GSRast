@@ -23,24 +23,24 @@ vec3 rsIntersection(out vec3 normal) {
     vec3 localRo = (camPos - ellipsoidCenter) * ellipsoidRot;
     vec3 localRd = normalize(normalize(position - camPos) * ellipsoidRot);
 
-    vec3 oneOver = 1.0 / ellipsoidScale;
+    dvec3 oneOver = 1.0 / dvec3(ellipsoidScale);
 
-    vec3 localRoScl = localRo * oneOver;
-    vec3 localRdScl = localRd * oneOver;
+    dvec3 localRoScl = dvec3(localRo) * oneOver;
+    dvec3 localRdScl = dvec3(localRd) * oneOver;
 
-    float a = dot(localRdScl, localRdScl);
-    float b = 2.0 * dot(localRoScl, localRdScl);
-    float c = dot(localRoScl, localRoScl) - 1.0; // We have normalized the radius by dividing it by scale
+    double a = dot(localRdScl, localRdScl);
+    double b = 2.0 * dot(localRoScl, localRdScl);
+    double c = dot(localRoScl, localRoScl) - 1.0; // We have normalized the radius by dividing it by scale
 
-    float discriminant = b * b - 4.0 * a * c;
+    double discriminant = b * b - 4.0 * a * c;
 
     if (discriminant < 0.0) {
         return vec3(0.0);
     }
 
-    float t1 = (-b + sqrt(discriminant)) / (2.0 * a);
-    float t2 = (-b - sqrt(discriminant)) / (2.0 * a);
-    float t = min(t1, t2);
+    double t1 = (-b + sqrt(discriminant)) / (2.0 * a);
+    double t2 = (-b - sqrt(discriminant)) / (2.0 * a);
+    float t = float(min(t1, t2));
 
     vec3 localPos = localRo + t * localRd;
     vec3 localN = normalize(localPos / ellipsoidScale);
