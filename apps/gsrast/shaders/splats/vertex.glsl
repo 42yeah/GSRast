@@ -41,7 +41,7 @@ void main() {
     mat3 rot = quatToMat(quats[gl_InstanceID]);
     vec3 rotated = rot * scaled;
     vec3 posOffset = rotated + vec3(positions[gl_InstanceID]);
-    vec4 mPos = model * vec4(posOffset, 1.0);
+    vec4 mPos = vec4(posOffset, 1.0);
 
     position = vec3(mPos);
     ellipsoidCenter = vec3(positions[gl_InstanceID]);
@@ -52,6 +52,6 @@ void main() {
     vView = view;
     vPerspective = perspective;
 
-    gl_Position = perspective * view * mPos;
+    gl_Position = perspective * view * model * mPos;
     color = vec3(colors[gl_InstanceID]) * 0.2 + vec3(0.5, 0.5, 0.5);
 }
