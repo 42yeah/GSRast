@@ -20,6 +20,7 @@ SphereTraceShader::SphereTraceShader(CameraBase::Ptr camera) : ShaderBase("shade
         _sphereCenterPos = glGetUniformLocation(_program, "sphereCenter");
         _sphereScalePos = glGetUniformLocation(_program, "sphereScale");
         _cubeModePos = glGetUniformLocation(_program, "cubeMode");
+        _sphereRotationPos = glGetUniformLocation(_program, "sphereRotation");
     }
 }
 
@@ -52,6 +53,7 @@ void SphereTraceShader::use(const DrawBase &draw)
         glUniform3f(_sphereCenterPos, center.x, center.y, center.z);
         glUniform3f(_sphereScalePos, scale.x, scale.y, scale.z);
         glUniform1i(_cubeModePos, _cubeMode);
+        glUniformMatrix3fv(_sphereRotationPos, 1, GL_FALSE, glm::value_ptr(ellipsoid.getRotationMatrix()));
     }
 }
 

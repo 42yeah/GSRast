@@ -20,9 +20,15 @@ public:
     const glm::vec3 &getScale() const;
     void setScale(const glm::vec3 &scale);
 
+    const glm::vec2 &getYawPitch() const;
+    void setYawPitch(const glm::vec2 &yp);
+    glm::mat3 getRotationMatrix() const;
+
 protected:
     void compositeTransformations();
 
     glm::vec3 _center;
     glm::vec3 _scale;
+    glm::vec2 _yp;
+    glm::mat4 _rotation;
 };

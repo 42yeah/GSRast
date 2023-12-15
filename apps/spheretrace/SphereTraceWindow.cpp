@@ -32,6 +32,7 @@ void SphereTraceWindow::pollEvents()
 
     glm::vec3 ellipPos = _ellipsoid->getCenter();
     glm::vec3 ellipScale = _ellipsoid->getScale();
+    glm::vec2 ellipYP = _ellipsoid->getYawPitch();
     if (glfwGetKey(_window, GLFW_KEY_DOWN))
     {
         ellipPos.y -= _firstPersonCamera->getSpeed() * _dt;
@@ -64,8 +65,18 @@ void SphereTraceWindow::pollEvents()
     {
         ellipScale[_currentAxis] -= _firstPersonCamera->getSpeed() * _dt;
     }
+    if (glfwGetKey(_window, GLFW_KEY_LEFT_BRACKET) && _currentAxis < 2)
+    {
+        ellipYP[_currentAxis] -= _firstPersonCamera->getSpeed() * _dt;
+    }
+    if (glfwGetKey(_window, GLFW_KEY_RIGHT_BRACKET) && _currentAxis < 2)
+    {
+        ellipYP[_currentAxis] += _firstPersonCamera->getSpeed() * _dt;
+    }
+
     _ellipsoid->setCenter(ellipPos);
     _ellipsoid->setScale(ellipScale);
+    _ellipsoid->setYawPitch(ellipYP);
 }
 
 void SphereTraceWindow::keyCallback(int key, int scancode, int action, int mods)

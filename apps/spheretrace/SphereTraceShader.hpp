@@ -23,6 +23,6 @@ protected:
     bool _cubeMode;
 
     GLuint _modelPos, _viewPos, _perspectivePos;
-    GLuint _camPos, _sphereCenterPos, _sphereScalePos, _cubeModePos;
+    GLuint _camPos, _sphereCenterPos, _sphereScalePos, _cubeModePos, _sphereRotationPos;
     CameraBase::Ptr _camera;
 };
