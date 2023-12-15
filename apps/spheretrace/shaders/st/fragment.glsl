@@ -6,6 +6,8 @@ out vec4 color;
 
 uniform vec3 camPos;
 uniform vec3 sphereCenter;
+uniform vec3 sphereScale;
+uniform bool cubeMode;
 
 #define HI_PRECISION
 
@@ -22,8 +24,8 @@ uniform vec3 sphereCenter;
  * located at c, with radius r = 1.0.
  */
 vec3 sphereIntersect(vec3 c, vec3 ro, vec3 p, out vec3 normal) {
-    VEC rd = VEC(normalize(p - ro));
-    VEC oRel = VEC(ro - c); // ro relative to c
+    VEC rd = VEC(normalize(p - ro)) / VEC(sphereScale);
+    VEC oRel = VEC(ro - c) / VEC(sphereScale); // ro relative to c
 
     FLT a = dot(rd, rd);
     FLT b = 2.0 * dot(oRel, rd);
@@ -40,17 +42,20 @@ vec3 sphereIntersect(vec3 c, vec3 ro, vec3 p, out vec3 normal) {
     FLT t1 = (-b + sqrt(discriminant)) / (2.0 * a);
     FLT t2 = (-b - sqrt(discriminant)) / (2.0 * a);
     FLT t = min(t1, t2);
-    vec3 intersection = ro + vec3(t * rd);
+    vec3 intersection = ro + vec3(t * rd) * sphereScale;
 
-    normal = normalize(intersection - c);
+    normal = normalize((intersection - c) / sphereScale);
     return intersection;
 }
 
 void main() {
     vec3 nor = vec3(0.0);
     vec3 sp = sphereIntersect(sphereCenter, camPos, worldPos, nor);
-    if (sp == vec3(0.0)) {
+    if (!cubeMode && sp == vec3(0.0)) {
         discard;
+    } else if (cubeMode && sp == vec3(0.0)) {
+        color = vec4(1.0, 0.0, 1.0, 1.0);
+        return;
     }
 
     float col = max(dot(vec3(1.0, 1.0, 1.0), nor), 0.0);

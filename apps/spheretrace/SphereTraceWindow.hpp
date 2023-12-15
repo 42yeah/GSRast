@@ -2,7 +2,7 @@
 
 #include "Window.hpp"
 #include "Config.hpp"
-#include "Cube.hpp"
+#include "Ellipsoid.hpp"
 #include "SphereTraceShader.hpp"
 #include <glm/glm.hpp>
 
@@ -18,7 +18,9 @@ public:
     virtual void pollEvents() override;
 
 protected:
-    glm::vec3 _sphereCenter;
-    Cube::Ptr _cube;
+    virtual void keyCallback(int key, int scancode, int action, int mods) override;
+
+    Ellipsoid::Ptr _ellipsoid;
     SphereTraceShader::Ptr _shader;
+    int _currentAxis;
 };

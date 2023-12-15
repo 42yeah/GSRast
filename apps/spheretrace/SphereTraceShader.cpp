@@ -2,12 +2,15 @@
 #include "CameraBase.hpp"
 #include "ShaderBase.hpp"
 #include "DrawBase.hpp"
+#include "apps/spheretrace/Ellipsoid.hpp"
 #include <glm/gtc/type_ptr.hpp>
+#include <memory>
 
 
 SphereTraceShader::SphereTraceShader(CameraBase::Ptr camera) : ShaderBase("shaders/st/vertex.glsl", "shaders/st/fragment.glsl")
 {
     _camera = camera;
+    _cubeMode = false;
     if (_valid)
     {
         _modelPos = glGetUniformLocation(_program, "model");
@@ -15,8 +18,9 @@ SphereTraceShader::SphereTraceShader(CameraBase::Ptr camera) : ShaderBase("shade
         _perspectivePos = glGetUniformLocation(_program, "perspective");
         _camPos = glGetUniformLocation(_program, "camPos");
         _sphereCenterPos = glGetUniformLocation(_program, "sphereCenter");
+        _sphereScalePos = glGetUniformLocation(_program, "sphereScale");
+        _cubeModePos = glGetUniformLocation(_program, "cubeMode");
     }
-    _sphereCenter = glm::vec3(0.0f);
 }
 
 SphereTraceShader::~SphereTraceShader()
@@ -40,16 +44,19 @@ void SphereTraceShader::use(const DrawBase &draw)
 
         const glm::vec3 &camPos = _camera->getPosition();
         glUniform3f(_camPos, camPos.x, camPos.y, camPos.z);
-        glUniform3f(_sphereCenterPos, _sphereCenter.x, _sphereCenter.y, _sphereCenter.z);
+
+        // We have to be actually rendering an ellipsoid
+        const Ellipsoid &ellipsoid = dynamic_cast<const Ellipsoid &>(draw);
+        const glm::vec3 &center = ellipsoid.getCenter();
+        const glm::vec3 &scale = ellipsoid.getScale();
+        glUniform3f(_sphereCenterPos, center.x, center.y, center.z);
+        glUniform3f(_sphereScalePos, scale.x, scale.y, scale.z);
+        glUniform1i(_cubeModePos, _cubeMode);
     }
 }
 
-const glm::vec3 &SphereTraceShader::getCenter() const
+bool SphereTraceShader::toggleCubeMode()
 {
-    return _sphereCenter;
-}
-
-void SphereTraceShader::setCenter(const glm::vec3 &center)
-{
-    _sphereCenter = center;
+    _cubeMode = !_cubeMode;
+    return _cubeMode;
 }

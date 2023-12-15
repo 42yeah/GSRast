@@ -17,12 +17,12 @@ public:
     virtual bool valid() override;
     virtual void use(const DrawBase &draw) override;
 
-    const glm::vec3 &getCenter() const;
-    void setCenter(const glm::vec3 &center);
+    bool toggleCubeMode();
 
 protected:
+    bool _cubeMode;
+
     GLuint _modelPos, _viewPos, _perspectivePos;
-    GLuint _camPos, _sphereCenterPos;
+    GLuint _camPos, _sphereCenterPos, _sphereScalePos, _cubeModePos;
     CameraBase::Ptr _camera;
-    glm::vec3 _sphereCenter;
 };
