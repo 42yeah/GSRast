@@ -2,6 +2,8 @@
 
 #include "Window.hpp"
 #include "Config.hpp"
+#include "Cube.hpp"
+#include "SphereTraceShader.hpp"
 #include <glm/glm.hpp>
 
 
@@ -13,6 +15,10 @@ public:
     SphereTraceWindow();
     ~SphereTraceWindow();
 
+    virtual void pollEvents() override;
+
 protected:
     glm::vec3 _sphereCenter;
+    Cube::Ptr _cube;
+    SphereTraceShader::Ptr _shader;
 };

@@ -5,6 +5,7 @@ in vec3 worldPos;
 out vec4 color;
 
 uniform vec3 camPos;
+uniform vec3 sphereCenter;
 
 #define HI_PRECISION
 
@@ -47,7 +48,7 @@ vec3 sphereIntersect(vec3 c, vec3 ro, vec3 p, out vec3 normal) {
 
 void main() {
     vec3 nor = vec3(0.0);
-    vec3 sp = sphereIntersect(vec3(0.0), camPos, worldPos, nor);
+    vec3 sp = sphereIntersect(sphereCenter, camPos, worldPos, nor);
     if (sp == vec3(0.0)) {
         discard;
     }

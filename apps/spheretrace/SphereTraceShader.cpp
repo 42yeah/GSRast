@@ -14,7 +14,9 @@ SphereTraceShader::SphereTraceShader(CameraBase::Ptr camera) : ShaderBase("shade
         _viewPos = glGetUniformLocation(_program, "view");
         _perspectivePos = glGetUniformLocation(_program, "perspective");
         _camPos = glGetUniformLocation(_program, "camPos");
+        _sphereCenterPos = glGetUniformLocation(_program, "sphereCenter");
     }
+    _sphereCenter = glm::vec3(0.0f);
 }
 
 SphereTraceShader::~SphereTraceShader()
@@ -38,5 +40,16 @@ void SphereTraceShader::use(const DrawBase &draw)
 
         const glm::vec3 &camPos = _camera->getPosition();
         glUniform3f(_camPos, camPos.x, camPos.y, camPos.z);
+        glUniform3f(_sphereCenterPos, _sphereCenter.x, _sphereCenter.y, _sphereCenter.z);
     }
+}
+
+const glm::vec3 &SphereTraceShader::getCenter() const
+{
+    return _sphereCenter;
+}
+
+void SphereTraceShader::setCenter(const glm::vec3 &center)
+{
+    _sphereCenter = center;
 }
