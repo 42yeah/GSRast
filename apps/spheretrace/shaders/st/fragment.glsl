@@ -30,7 +30,7 @@ uniform bool cubeMode;
 vec3 sphereIntersect(vec3 c, vec3 ro, vec3 p, out vec3 normal) {
     MAT sphereRotationT = transpose(sphereRotation);
 
-    VEC rd = VEC(sphereRotationT * normalize(p - ro)) / VEC(sphereScale);
+    VEC rd = normalize(VEC(sphereRotationT * normalize(p - ro)) / VEC(sphereScale));
     VEC oRel = (sphereRotationT * VEC(ro - c)) / VEC(sphereScale); // ro relative to c
 
     FLT a = dot(rd, rd);
@@ -49,8 +49,9 @@ vec3 sphereIntersect(vec3 c, vec3 ro, vec3 p, out vec3 normal) {
     FLT t2 = (-b - sqrt(discriminant)) / (2.0 * a);
     FLT t = min(t1, t2);
     vec3 intersection = ro + sphereRotation * (vec3(t * rd) * sphereScale);
+    vec3 localIntersection = ((mat3(sphereRotationT) * (intersection - c)) / sphereScale);
 
-    normal = normalize((intersection - c) / sphereScale);
+    normal = sphereRotation * localIntersection;
     return intersection;
 }
 
