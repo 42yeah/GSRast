@@ -22,3 +22,5 @@
 #define DEFAULT_FOV glm::radians(45.0f)
 
 std::ostream &operator<<(std::ostream &os, const glm::vec3 &p);
+
+std::ostream &operator<<(std::ostream &os, const glm::vec4 &p);

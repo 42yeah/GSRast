@@ -9,7 +9,8 @@
 FirstPersonCamera::FirstPersonCamera() : _position(0.0f, 0.0f, -1.0f),
     _front(0.0f, 0.0f, 1.0f), _right(1.0f, 0.0f, 0.0f),
     _view(1.0f), _perspective(1.0f), _ypr(0.0f, 0.0f, 0.0f),
-    _sensitivity(0.01f), _speed(1.0f), _near(DEFAULT_NEAR), _far(DEFAULT_FAR), _fov(DEFAULT_FOV)
+    _sensitivity(0.01f), _speed(1.0f), _near(DEFAULT_NEAR), _far(DEFAULT_FAR), _fov(DEFAULT_FOV),
+    _invertUp(false)
 {
 
 }
@@ -26,11 +27,12 @@ const glm::mat4 &FirstPersonCamera::getPerspective() const
 
 void FirstPersonCamera::update(const WindowBase &window)
 {
+    glm::vec3 arbitraryUp = !_invertUp ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(0.0f, -1.0f, 0.0f);
     _front = glm::vec3(cosf(_ypr.y) * sinf(_ypr.x),
                        sinf(_ypr.y),
                        cosf(_ypr.y) * cosf(_ypr.x));
-    _right = glm::normalize(glm::cross(_front, glm::vec3(0.0f, 1.0f, 0.0f)));
-    _view = glm::lookAt(_position, _position + _front, glm::vec3(0.0f, 1.0f, 0.0f));
+    _right = glm::normalize(glm::cross(_front, arbitraryUp));
+    _view = glm::lookAt(_position, _position + _front, arbitraryUp);
     float aspect = (float) window.getWidth() / window.getHeight();
     _perspective = glm::perspective(_fov, aspect, _near, _far);
 }
@@ -42,8 +44,9 @@ void FirstPersonCamera::applyMotion(glm::vec3 dir)
 
 void FirstPersonCamera::applyDelta(float dYaw, float dPitch)
 {
-    _ypr.x -= dYaw * _sensitivity;
-    _ypr.y = glm::min(glm::max(_ypr.y - dPitch * _sensitivity, -0.5f * PI_F + EPSILON), 0.5f * PI_F - EPSILON);
+    float modifier = _invertUp ? -1.0f : 1.0f;
+    _ypr.x -= modifier * dYaw * _sensitivity;
+    _ypr.y = glm::min(glm::max(_ypr.y - modifier * dPitch * _sensitivity, -0.5f * PI_F + EPSILON), 0.5f * PI_F - EPSILON);
 }
 
 void FirstPersonCamera::setSensitivity(float sensitivity)
@@ -114,4 +117,9 @@ void FirstPersonCamera::setNearFar(float near, float far)
 void FirstPersonCamera::setFOV(float fov)
 {
     _fov = fov;
+}
+
+void FirstPersonCamera::setInvertUp(bool invert)
+{
+    _invertUp = invert;
 }

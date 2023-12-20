@@ -18,12 +18,11 @@ public:
     GSEllipsoids();
     ~GSEllipsoids();
 
-    static GLuint generatePointsSSBO(const std::vector<glm::vec4> &points);
-
 protected:
     int _numInstances;
     GLuint _positionSSBO;
     GLuint _scaleSSBO;
     GLuint _colorSSBO;
     GLuint _quatSSBO;
+    GLuint _alphaSSBO;
 };
