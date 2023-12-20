@@ -5,7 +5,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 
-SplatShader::SplatShader(CameraBase::Ptr camera) : ShaderBase("shaders/splatsRef/vertex.glsl", "shaders/splatsRef/fragment.glsl")
+SplatShader::SplatShader(CameraBase::Ptr camera) : ShaderBase("shaders/splats/vertex.glsl", "shaders/splats/fragment.glsl")
 {
     _camera = camera;
     if (_valid)

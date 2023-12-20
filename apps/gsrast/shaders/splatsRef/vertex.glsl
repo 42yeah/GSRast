@@ -88,7 +88,7 @@ void main() {
     ellipsoidCenter = vec3(positions[boxID]);
 
 	ellipsoidScale = vec3(scales[boxID]);
-	ellipsoidScale = ellipsoidScale * 2.0;
+	ellipsoidScale = ellipsoidScale;
 
 	vec4 q = rotations[boxID];
 	ellipsoidRotation = transpose(quatToMat3(q));

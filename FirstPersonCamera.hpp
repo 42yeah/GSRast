@@ -33,10 +33,12 @@ public:
     void lookAt(const glm::vec3 &point);
     void setNearFar(float near, float far);
     void setFOV(float fov);
+    void setInvertUp(bool invert);
 
 protected:
     glm::vec3 _position, _front, _right;
     glm::mat4 _view, _perspective;
     glm::vec3 _ypr; // yaw pitch roll
     float _sensitivity, _speed, _near, _far, _fov;
+    bool _invertUp;
 };

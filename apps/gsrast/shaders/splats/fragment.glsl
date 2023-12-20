@@ -3,63 +3,81 @@
 in vec3 position;
 in vec3 ellipsoidCenter;
 in vec3 ellipsoidScale;
+in float ellipsoidAlpha;
 in mat3 ellipsoidRot;
 in vec3 color;
 
-in mat4 vModel;
-in mat4 vView;
-in mat4 vPerspective;
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 perspective;
 
 out vec4 outColor;
 
 uniform vec3 camPos;
 uniform vec3 camFront;
 
+#define HI_PRECISION
 
-// Ray-sphere intersection
-// c: Ellipsoid center,
-// d: Ray direction (position - camera eye)
-vec3 rsIntersection(out vec3 normal) {
-    vec3 localRo = (camPos - ellipsoidCenter) * ellipsoidRot;
-    vec3 localRd = normalize(normalize(position - camPos) * ellipsoidRot);
+#ifdef HI_PRECISION
+#define VEC dvec3
+#define FLT double
+#define MAT dmat3
+#else
+#define VEC vec3
+#define FLT float
+#define MAT mat3
+#endif
 
-    dvec3 oneOver = double(1.0) / dvec3(ellipsoidScale);
+/**
+ * This function checks for whether (p - ro) intersects a sphere
+ * located at c, with radius r = 1.0.
+ */
+vec3 sphereIntersect(vec3 c, vec3 ro, vec3 p, out vec3 normal) {
+    MAT ellipoidRotT = transpose(ellipsoidRot);
 
-    dvec3 localRoScl = dvec3(localRo) * oneOver;
-    dvec3 localRdScl = dvec3(localRd) * oneOver;
+    VEC rd = VEC(ellipoidRotT * normalize(p - ro)) / VEC(ellipsoidScale);
+    VEC oRel = (ellipoidRotT * VEC(ro - c)) / VEC(ellipsoidScale); // ro relative to c
 
-    double a = dot(localRdScl, localRdScl);
-    double b = double(2.0) * dot(localRoScl, localRdScl);
-    double c = dot(localRoScl, localRoScl) - double(1.0); // We have normalized the radius by dividing it by scale
+    FLT a = dot(rd, rd);
+    FLT b = 2.0 * dot(oRel, rd);
+    FLT cc = dot(oRel, oRel) - 1.0;
 
-    double discriminant = b * b - 4.0 * a * c;
+    FLT discriminant = b * b - 4 * a * cc;
 
+    // no intersection
     if (discriminant < 0.0) {
         return vec3(0.0);
     }
 
-    float t1 = float((-b + sqrt(discriminant)) / (2.0 * a));
-    float t2 = float((-b - sqrt(discriminant)) / (2.0 * a));
-    float t = min(t1, t2);
+    // yes intersection - but do we need to calculate t? or...
+    FLT t1 = (-b + sqrt(discriminant)) / (2.0 * a);
+    FLT t2 = (-b - sqrt(discriminant)) / (2.0 * a);
+    FLT t = min(t1, t2);
+    vec3 intersection = ro + ellipsoidRot * (vec3(t * rd) * ellipsoidScale);
+    vec3 localIntersection = ((mat3(ellipoidRotT) * (intersection - c)) / ellipsoidScale);
 
-    vec3 localPos = localRo + t * localRd;
-    vec3 localN = normalize(localPos / ellipsoidScale);
-    normal = normalize(ellipsoidRot * localN);
-
-    vec3 intersection = ellipsoidRot * localPos + ellipsoidCenter;
+    normal = ellipsoidRot * localIntersection;
     return intersection;
 }
 
+
 void main() {
+    if (ellipsoidAlpha < 0.3) {
+        discard;
+    }
+
     vec3 normal = vec3(0.0);
-    vec3 intersection = rsIntersection(normal);
+    vec3 intersection = sphereIntersect(ellipsoidCenter, camPos, position, normal);
     if (intersection == vec3(0.0)) {
         discard;
     }
 
-    vec4 newPos = vPerspective * vView * vModel * vec4(intersection, 1.0);
+    vec3 rd = normalize(camPos - intersection);
+    float align = max(dot(rd, normal), 0.1);
+
+    vec4 newPos = perspective * view * model * vec4(intersection, 1.0);
     newPos /= newPos.w;
     gl_FragDepth = newPos.z;
 
-    outColor = vec4(color, 1.0);
+    outColor = vec4(align * color, 1.0);
 }

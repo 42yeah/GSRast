@@ -88,7 +88,7 @@ bool GSEllipsoids::configureFromPly(const std::string &path, ShaderBase::Ptr sha
     // configure SSBO: position
     for (int i = 0; i < splatPtr->splats.size(); i++)
     {
-        const glm::vec3 &pos = splatPtr->splats[i].position;
+        glm::vec3 pos = splatPtr->splats[i].position;
         _bbox.enclose(pos);
         _center += pos;
         points[i] = glm::vec4(pos.x, pos.y, pos.z, 1.0f);
@@ -121,7 +121,7 @@ bool GSEllipsoids::configureFromPly(const std::string &path, ShaderBase::Ptr sha
     // NOTE to self: if it gets too laggy in the future, convert this to a rotation matrix
     for (int i = 0; i < splatPtr->splats.size(); i++)
     {
-        points[i] = splatPtr->splats[i].rotation;
+        points[i] = glm::normalize(splatPtr->splats[i].rotation);
     }
     _quatSSBO = generatePointsSSBO(points);
 
@@ -132,7 +132,7 @@ bool GSEllipsoids::configureFromPly(const std::string &path, ShaderBase::Ptr sha
     _alphaSSBO = generatePointsSSBO(alphas);
 
     // The loaded model is somehow upside down; refer to GSPC for more detail
-    _model = glm::scale(_model, glm::vec3(-1.0f, -1.0f, 1.0f));
+    // _model = glm::scale(_model, glm::vec3(-1.0f, -1.0f, 1.0f));
 
     return true;
 }

@@ -12,6 +12,7 @@
 GSRastWindow::GSRastWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WINDOW_H)
 {
     configureFirstPersonCamera();
+    _firstPersonCamera->setInvertUp(true);
     _pcShader = std::make_shared<PointCloudShader>(_firstPersonCamera);
     _splatShader = std::make_shared<SplatShader>(_firstPersonCamera);
 
