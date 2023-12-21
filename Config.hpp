@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <iostream>
+#include <stack>
 #include <glm/glm.hpp>
 
 #define CLASS_PTRS(CLASS_NAME) \
@@ -24,3 +25,16 @@
 std::ostream &operator<<(std::ostream &os, const glm::vec3 &p);
 
 std::ostream &operator<<(std::ostream &os, const glm::vec4 &p);
+
+struct Viewport
+{
+    int x, y, w, h;
+};
+
+struct GlobalStacks
+{
+    std::stack<Viewport> viewportStack;
+    std::stack<unsigned int> framebufferStack;
+};
+
+GlobalStacks &stacks();
