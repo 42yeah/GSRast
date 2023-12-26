@@ -18,6 +18,8 @@ public:
     GSPointCloud();
     ~GSPointCloud();
 
+    static float sigmoid(float x);
+
 protected:
     // Spherical harmonics struct taken from GS source code.
     template<int D>

@@ -114,6 +114,11 @@ void FirstPersonCamera::setNearFar(float near, float far)
     _far = far;
 }
 
+float FirstPersonCamera::getFOV() const
+{
+    return _fov;
+}
+
 void FirstPersonCamera::setFOV(float fov)
 {
     _fov = fov;

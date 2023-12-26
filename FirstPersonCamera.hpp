@@ -32,6 +32,7 @@ public:
     virtual void setPosition(const glm::vec3 &pos);
     void lookAt(const glm::vec3 &point);
     void setNearFar(float near, float far);
+    float getFOV() const;
     void setFOV(float fov);
     void setInvertUp(bool invert);
 

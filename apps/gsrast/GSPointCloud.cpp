@@ -116,3 +116,8 @@ std::unique_ptr<GSPC::GSSplats> GSPointCloud::loadFromSplatsPly(const std::strin
 
     return std::move(splats);
 }
+
+float GSPointCloud::sigmoid(float x)
+{
+    return 1.0f / (1.0f + exp(-x));
+}
