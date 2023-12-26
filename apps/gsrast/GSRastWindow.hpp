@@ -4,6 +4,7 @@
 #include "Window.hpp"
 #include "PointCloudShader.hpp"
 #include "SplatShader.hpp"
+#include "CopyShader.hpp"
 
 class GSRastWindow : public Window
 {
@@ -18,4 +19,5 @@ public:
 protected:
     PointCloudShader::Ptr _pcShader;
     SplatShader::Ptr _splatShader;
+    CopyShader::Ptr _copyShader;
 };

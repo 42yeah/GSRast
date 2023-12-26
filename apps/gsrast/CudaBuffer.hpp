@@ -28,7 +28,6 @@ public:
         _size = size;
         CHECK_CUDA_ERROR(cudaMalloc(&_ptr, _size));
         CHECK_CUDA_ERROR(cudaMemset(_ptr, 0, _size));
-        std::cout << "Allocating CUDA buffer (" << _size << ") bytes, OR " << (_size / 4) << " floats" << std::endl;
     }
 
     virtual void memcpy(const T *src, int size)

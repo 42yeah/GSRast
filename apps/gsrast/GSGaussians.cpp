@@ -5,6 +5,7 @@
 #include "GSPointCloud.hpp"
 #include "CudaBuffer.hpp"
 #include "config.h"
+#include "Framebuffer.hpp"
 #include <cuda_runtime_api.h>
 #include <rasterizer.h>
 #include <memory>
@@ -82,6 +83,16 @@ GSGaussians::~GSGaussians()
     }
 }
 
+int GSGaussians::getWidth() const
+{
+    return _width;
+}
+
+int GSGaussians::getHeight() const
+{
+    return _height;
+}
+
 bool GSGaussians::configureFromPly(const std::string &path, ShaderBase::Ptr shader)
 {
     const auto splats = loadFromSplatsPly(path);
@@ -157,6 +168,8 @@ bool GSGaussians::configureFromPly(const std::string &path, ShaderBase::Ptr shad
 
     _background->set(glm::vec3(1.0f, 0.0f, 1.0f));
 
+    configure(Framebuffer::rectData, 6, sizeof(Framebuffer::rectData), _shader);
+
     return true;
 }
 
@@ -199,5 +212,9 @@ void GSGaussians::draw()
                                             glm::value_ptr(_bbox.min),
                                             glm::value_ptr(_bbox.max))
     );
+
+    // Now directly render-copy the result by treating the interopTex as an SSBO
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, _interopTex->getBuffer());
+    BufferGeo::draw();
 }
 

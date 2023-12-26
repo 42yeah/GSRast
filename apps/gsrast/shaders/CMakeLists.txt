@@ -4,4 +4,5 @@ add_custom_target(gsrast_shaders ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/pointcloud ${SHADERS_DEST_DIR}/pointcloud
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/splats ${SHADERS_DEST_DIR}/splats
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/splatsRef ${SHADERS_DEST_DIR}/splatsRef
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/copy ${SHADERS_DEST_DIR}/copy
     COMMENT "Deploying GSRast PC shaders..")

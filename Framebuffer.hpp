@@ -29,6 +29,8 @@ public:
 
     GLuint getTexture() const;
 
+    static float rectData[18];
+
 protected:
     int _width, _height; // Framebuffer dimension
     ShaderBase::Ptr _shader; // shader used to draw this framebuffer

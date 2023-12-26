@@ -17,6 +17,7 @@ GSRastWindow::GSRastWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WI
     _firstPersonCamera->setInvertUp(true);
     _pcShader = std::make_shared<PointCloudShader>(_firstPersonCamera);
     _splatShader = std::make_shared<SplatShader>(_firstPersonCamera);
+    _copyShader = std::make_shared<CopyShader>();
 
     // Draw point clouds (GSPC)
     // GSPointCloud::Ptr gsPtr = std::make_shared<GSPointCloud>();
@@ -52,7 +53,7 @@ GSRastWindow::GSRastWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WI
 
     // Draw Gaussians
     GSGaussians::Ptr gsPtr = std::make_shared<GSGaussians>(_w, _h, _firstPersonCamera);
-    if (!gsPtr->configureFromPly("data.ply", _splatShader))
+    if (!gsPtr->configureFromPly("data.ply", _copyShader))
     {
         std::cerr << "Cannot configure Gaussians?" << std::endl;
     }
@@ -60,8 +61,8 @@ GSRastWindow::GSRastWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WI
     {
 
     }
-    // addDrawable(gsPtr);
-    gsPtr->draw();
+    addDrawable(gsPtr);
+    // gsPtr->draw();
 
     glPointSize(2.0f);
 }

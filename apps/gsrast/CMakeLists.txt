@@ -5,7 +5,8 @@ add_executable(gsrast main.cpp
     GSEllipsoids.cpp
     SplatShader.cpp
     GSGaussians.cpp
-    CudaBuffer.cpp)
+    CudaBuffer.cpp
+    CopyShader.cpp)
 
 find_package(CUDAToolkit)
 

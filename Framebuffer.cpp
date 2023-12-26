@@ -3,7 +3,7 @@
 #include "DrawBase.hpp"
 #include "RenderTarget.hpp"
 
-float rectData[] = {
+float Framebuffer::rectData[18] = {
     -1.0f, -1.0f, 0.0f,
     1.0f, -1.0f, 0.0f,
     1.0f, 1.0f, 0.0f,

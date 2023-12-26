@@ -22,6 +22,9 @@ public:
     GSGaussians(int width, int height, FirstPersonCamera::Ptr camera);
     ~GSGaussians();
 
+    int getWidth() const;
+    int getHeight() const;
+
     virtual bool configureFromPly(const std::string &path, ShaderBase::Ptr shader) override;
     virtual void draw() override;
 
