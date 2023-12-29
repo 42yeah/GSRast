@@ -179,10 +179,16 @@ void GSGaussians::draw()
     glm::mat4 view = _camera->getView();
     glm::mat4 projection = _camera->getPerspective() * _camera->getView();
 
+    view = glm::transpose(view);
+    projection = glm::transpose(projection);
+
     // Once we're transposed, we will be operating on rows
-    view[1] *= -1.0f;
+    // view[1] *= -1.0f;
     view[2] *= -1.0f;
-    projection[1] *= -1.0f;
+    // projection[1] *= -1.0f;
+
+    view = glm::transpose(view);
+    projection = glm::transpose(projection);
 
     _view->set(view);
     _projection->set(projection);
