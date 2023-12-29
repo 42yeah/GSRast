@@ -6,7 +6,8 @@ add_executable(gsrast main.cpp
     SplatShader.cpp
     GSGaussians.cpp
     CudaBuffer.cpp
-    CopyShader.cpp)
+    CopyShader.cpp
+    DebugCamera.cpp)
 
 find_package(CUDAToolkit)
 

@@ -26,6 +26,8 @@ std::ostream &operator<<(std::ostream &os, const glm::vec3 &p);
 
 std::ostream &operator<<(std::ostream &os, const glm::vec4 &p);
 
+std::ostream &operator<<(std::ostream &os, const glm::mat4 &m);
+
 struct Viewport
 {
     int x, y, w, h;

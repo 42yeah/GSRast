@@ -7,6 +7,7 @@
 #include "config.h"
 #include "Framebuffer.hpp"
 #include <cuda_runtime_api.h>
+#include <glm/matrix.hpp>
 #include <rasterizer.h>
 #include <memory>
 #include <vector>
@@ -175,8 +176,16 @@ bool GSGaussians::configureFromPly(const std::string &path, ShaderBase::Ptr shad
 
 void GSGaussians::draw()
 {
-    _view->set(_camera->getView());
-    _projection->set(_camera->getPerspective());
+    glm::mat4 view = _camera->getView();
+    glm::mat4 projection = _camera->getPerspective() * _camera->getView();
+
+    // Once we're transposed, we will be operating on rows
+    view[1] *= -1.0f;
+    view[2] *= -1.0f;
+    projection[1] *= -1.0f;
+
+    _view->set(view);
+    _projection->set(projection);
     _camPos->set(_camera->getPosition());
 
     float tanFOVy = tan(_camera->getFOV() * 0.5f);
@@ -209,8 +218,8 @@ void GSGaussians::draw()
                                             _interopTex->getPtr(),
                                             nullptr,
                                             _rects->getPtr(),
-                                            glm::value_ptr(_bbox.min),
-                                            glm::value_ptr(_bbox.max))
+                                            nullptr,
+                                            nullptr)
     );
 
     // Now directly render-copy the result by treating the interopTex as an SSBO
