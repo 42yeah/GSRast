@@ -59,7 +59,13 @@ GSRastWindow::GSRastWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WI
     }
     else
     {
-
+        _firstPersonCamera->setPosition(gsPtr->getCenter() - glm::vec3(0.0f, 0.0f, 5.0f));
+        _firstPersonCamera->lookAt(gsPtr->getCenter());
+        BBox bbox = gsPtr->getBBox();
+        glm::vec3 span = bbox.span();
+        float far = glm::max(glm::max(span.x, span.y), span.z);
+        _firstPersonCamera->setNearFar(0.001f * far, far);
+        _firstPersonCamera->setSpeed(far * 0.1f);
     }
     addDrawable(gsPtr);
     // gsPtr->draw();

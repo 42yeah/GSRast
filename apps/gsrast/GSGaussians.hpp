@@ -6,7 +6,6 @@
 #include <functional>
 #include <config.h>
 #include "ShaderBase.hpp"
-#include "CameraBase.hpp"
 #include "CudaBuffer.hpp"
 
 /**

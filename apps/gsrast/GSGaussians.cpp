@@ -167,7 +167,7 @@ bool GSGaussians::configureFromPly(const std::string &path, ShaderBase::Ptr shad
 
     _shader = shader;
 
-    _background->set(glm::vec3(1.0f, 0.0f, 1.0f));
+    _background->set(glm::vec3(0.0f, 0.0f, 0.0f));
 
     configure(Framebuffer::rectData, 6, sizeof(Framebuffer::rectData), _shader);
 
