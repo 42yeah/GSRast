@@ -13,7 +13,7 @@ class Window : public WindowBase
 public:
     CLASS_PTRS(Window)
 
-    ~Window();
+    virtual ~Window();
 
     virtual bool valid() const override;
     virtual bool closed() const override;

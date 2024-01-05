@@ -11,9 +11,12 @@ add_executable(gsrast main.cpp
 
 find_package(CUDAToolkit)
 
+add_subdirectory(gscuda)
+
 target_link_libraries(gsrast PUBLIC
     base
     CudaRasterizer
-    CUDA::cudart)
+    CUDA::cudart
+    gscuda)
 
 add_subdirectory(shaders)

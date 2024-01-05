@@ -19,7 +19,7 @@ public:
     CLASS_PTRS(GSGaussians)
 
     GSGaussians(int width, int height, FirstPersonCamera::Ptr camera);
-    ~GSGaussians();
+    virtual ~GSGaussians();
 
     int getWidth() const;
     int getHeight() const;

@@ -12,6 +12,15 @@
 #include <memory>
 #include <vector>
 #include <glm/gtc/type_ptr.hpp>
+#include <GSCuda.cuh>
+
+#define USE_GSCUDA
+
+#ifdef USE_GSCUDA 
+#define FORWARD gscuda::forward
+#else 
+#define FORWARD CudaRasterizer::Rasterizer::forward
+#endif 
 
 // Taken directly from SIBR_Viewers.
 std::function<char* (size_t N)> resizeFunctional(void** ptr, size_t& S) {
@@ -198,34 +207,34 @@ void GSGaussians::draw()
     float tanFOVx = tanFOVy * ((float) _width / _height);
 
     CHECK_CUDA_ERROR(
-        CudaRasterizer::Rasterizer::forward(_geomBufferFunc,
-                                            _binningBufferFunc,
-                                            _imgBufferFunc,
-                                            _numGaussians,
-                                            3,
-                                            16,
-                                            (const float *) _background->getPtr(),
-                                            _width,
-                                            _height,
-                                            _positions->getPtr(),
-                                            _shs->getPtr(),
-                                            nullptr,
-                                            _opacities->getPtr(),
-                                            _scales->getPtr(),
-                                            1.0f,
-                                            _rotations->getPtr(),
-                                            nullptr,
-                                            (const float *) _view->getPtr(),
-                                            (const float *) _projection->getPtr(),
-                                            (const float *) _camPos->getPtr(),
-                                            tanFOVx,
-                                            tanFOVy,
-                                            false,
-                                            _interopTex->getPtr(),
-                                            nullptr,
-                                            _rects->getPtr(),
-                                            nullptr,
-                                            nullptr)
+        FORWARD(_geomBufferFunc,
+                _binningBufferFunc,
+                _imgBufferFunc,
+                _numGaussians,
+                3,
+                16,
+                (const float *) _background->getPtr(),
+                _width,
+                _height,
+                _positions->getPtr(),
+                _shs->getPtr(),
+                nullptr,
+                _opacities->getPtr(),
+                _scales->getPtr(),
+                1.0f,
+                _rotations->getPtr(),
+                nullptr,
+                (const float *) _view->getPtr(),
+                (const float *) _projection->getPtr(),
+                (const float *) _camPos->getPtr(),
+                tanFOVx,
+                tanFOVy,
+                false,
+                _interopTex->getPtr(),
+                nullptr,
+                _rects->getPtr(),
+                nullptr,
+                nullptr)
     );
 
     // Now directly render-copy the result by treating the interopTex as an SSBO
