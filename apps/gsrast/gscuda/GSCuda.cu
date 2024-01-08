@@ -186,6 +186,10 @@ namespace gscuda
             radii = geoState.internalRadii;
         }
 
+        size_t imageBufferSize = required<ImageState>(width * height);
+        char *imBuffer = imageBuffer(imageBufferSize);
+        ImageState imState = ImageState::fromChunk(imBuffer, width * height);
+
         std::cout << "Would you be mad if it is unimplemented?" << std::endl;
     }
 };

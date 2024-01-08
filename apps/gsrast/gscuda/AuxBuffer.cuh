@@ -37,19 +37,28 @@ namespace gscuda
     {
         struct GeometryState
         {
+            uint32_t *tilesTouched;
             size_t scanSize;
-            float *depths; // Projected depths
             char *scanningSpace;
+            float *depths; // Projected depths
             bool *clamped;
             int *internalRadii;
             glm::vec2 *means2D;
             float *cov3D;
             glm::vec4 *conicOpacity;
             glm::vec3 *rgb;
-            size_t *pointOffsets;
-            size_t *tilesTouched;
+            uint32_t *pointOffsets;
 
             static GeometryState fromChunk(char *&, int numGaussians);
+        };
+
+        struct ImageState
+        {
+            glm::uvec2 *ranges;
+            uint32_t *nContrib;
+            float *accumAlpha;
+
+            static ImageState fromChunk(char *&, int size);
         };
 
     }

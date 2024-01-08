@@ -1,5 +1,5 @@
 #include "AuxBuffer.cuh"
-#include <cub/device/device_scan.cuh>
+#include <cub/cub.cuh>
 
 
 namespace gscuda
@@ -44,6 +44,11 @@ namespace gscuda
         GeometryState GeometryState::fromChunk(char *&chunk, int numGaussians)
         {
             GeometryState state;
+
+            obtain(chunk, state.tilesTouched, sizeof(uint32_t) * numGaussians, 128);
+            cub::DeviceScan::InclusiveSum(nullptr, state.scanSize, state.tilesTouched, state.tilesTouched, numGaussians);
+            obtain(chunk, state.scanningSpace, state.scanSize, 128);
+
             obtain(chunk, state.depths, sizeof(float) * numGaussians, 128);
             obtain(chunk, state.clamped, sizeof(bool) * numGaussians * 3, 128);
             obtain(chunk, state.internalRadii, sizeof(float) * numGaussians, 128);
@@ -51,10 +56,17 @@ namespace gscuda
             obtain(chunk, state.cov3D, 6 * sizeof(float) * numGaussians, 128); // Upper-right corner of the matrix (because it's symmetric)
             obtain(chunk, state.conicOpacity, sizeof(glm::vec4) * numGaussians, 128);
             obtain(chunk, state.rgb, sizeof(glm::vec3) * numGaussians, 128);
-            obtain(chunk, state.tilesTouched, sizeof(size_t) * numGaussians, 128);
-            cub::DeviceScan::InclusiveSum(nullptr, state.scanSize, state.tilesTouched, state.tilesTouched, numGaussians);
-            obtain(chunk, state.scanningSpace, state.scanSize, 128);
-            obtain(chunk, state.pointOffsets, sizeof(size_t) * numGaussians, 128);
+            obtain(chunk, state.pointOffsets, sizeof(uint32_t) * numGaussians, 128);
+
+            return state;
+        }
+
+        ImageState ImageState::fromChunk(char *&chunk, int size)
+        {
+            ImageState state;
+            obtain(chunk, state.ranges, sizeof(glm::uvec2) * size, 128);
+            obtain(chunk, state.nContrib, sizeof(uint32_t) * size, 128);
+            obtain(chunk, state.accumAlpha, sizeof(float) * size, 128);
 
             return state;
         }
