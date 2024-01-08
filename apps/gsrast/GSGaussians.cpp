@@ -18,7 +18,7 @@
 #define USE_GSCUDA
 
 #ifdef USE_GSCUDA 
-#define FORWARD gscuda::forwardPoints
+#define FORWARD gscuda::forward
 #else 
 #define FORWARD CudaRasterizer::Rasterizer::forward
 #endif 

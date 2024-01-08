@@ -1,4 +1,6 @@
 #include "AuxBuffer.cuh"
+#include <cub/device/device_scan.cuh>
+
 
 namespace gscuda
 {
@@ -14,8 +16,8 @@ namespace gscuda
         assert(align >= 16 && "CUDA requires an alignment of at least 16 bytes");
         size_t offset = reinterpret_cast<size_t>(chunk);
         size_t aligned = align * ((offset + align - 1) / align);
-        out = reinterpret_cast<T *>(offset);
-        chunk = reinterpret_cast<char *>(out + size);
+        out = reinterpret_cast<T *>(aligned);
+        chunk = reinterpret_cast<char *>(aligned + size);
     }
 
     namespace pc
@@ -42,6 +44,17 @@ namespace gscuda
         GeometryState GeometryState::fromChunk(char *&chunk, int numGaussians)
         {
             GeometryState state;
+            obtain(chunk, state.depths, sizeof(float) * numGaussians, 128);
+            obtain(chunk, state.clamped, sizeof(bool) * numGaussians * 3, 128);
+            obtain(chunk, state.internalRadii, sizeof(float) * numGaussians, 128);
+            obtain(chunk, state.means2D, sizeof(glm::vec2) * numGaussians, 128);
+            obtain(chunk, state.cov3D, 6 * sizeof(float) * numGaussians, 128); // Upper-right corner of the matrix (because it's symmetric)
+            obtain(chunk, state.conicOpacity, sizeof(glm::vec4) * numGaussians, 128);
+            obtain(chunk, state.rgb, sizeof(glm::vec3) * numGaussians, 128);
+            obtain(chunk, state.tilesTouched, sizeof(size_t) * numGaussians, 128);
+            cub::DeviceScan::InclusiveSum(nullptr, state.scanSize, state.tilesTouched, state.tilesTouched, numGaussians);
+            obtain(chunk, state.scanningSpace, state.scanSize, 128);
+            obtain(chunk, state.pointOffsets, sizeof(size_t) * numGaussians, 128);
 
             return state;
         }

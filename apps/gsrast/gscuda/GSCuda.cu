@@ -13,6 +13,8 @@
 #define NUM_THREADS 1024
 #define SCREEN_SPACE_PC_BLOCKS_W 128
 #define SCREEN_SPACE_PC_BLOCKS_H 128
+#define TILE_W 16
+#define TILE_H 16
 
 
 namespace gscuda 
@@ -173,9 +175,16 @@ namespace gscuda
                  float *boxMin, // Unused; bounding box I think
                  float *boxMax)
     {
+        using namespace gs;
         float focalDist = height / (2.0f * tanFOVy);
 
-
+        size_t geometryBufferSize = required<GeometryState>(numGaussians);
+        char *geoBuffer = geometryBuffer(geometryBufferSize);
+        GeometryState geoState = GeometryState::fromChunk(geoBuffer, numGaussians);
+        if (radii == nullptr)
+        {
+            radii = geoState.internalRadii;
+        }
 
         std::cout << "Would you be mad if it is unimplemented?" << std::endl;
     }
