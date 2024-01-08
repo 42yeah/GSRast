@@ -91,7 +91,7 @@ public:
         }
     }
 
-    ~CudaBuffer()
+    virtual ~CudaBuffer()
     {
         free();
     }
