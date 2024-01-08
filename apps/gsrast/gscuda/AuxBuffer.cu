@@ -18,14 +18,6 @@ namespace gscuda
         chunk = reinterpret_cast<char *>(out + size);
     }
 
- //    template <typename T>
-	// static void obtain(char*& chunk, T*& ptr, std::size_t count, std::size_t alignment)
-	// {
-	// 	std::size_t offset = (reinterpret_cast<std::uintptr_t>(chunk) + alignment - 1) & ~(alignment - 1);
-	// 	ptr = reinterpret_cast<T*>(offset);
-	// 	chunk = reinterpret_cast<char*>(ptr + count);
-	// }
-    
     namespace pc
     {
         GeometryState GeometryState::fromChunk(char *&chunk, int numGaussians)
@@ -40,6 +32,16 @@ namespace gscuda
             obtain(chunk, state.depth, sizeof(float) * size, 128);
             obtain(chunk, state.outColor, sizeof(float) * size * 3, 128);
             obtain(chunk, state.defaultDepth, sizeof(float), 128);
+
+            return state;
+        }
+    }
+
+    namespace gs
+    {
+        GeometryState GeometryState::fromChunk(char *&chunk, int numGaussians)
+        {
+            GeometryState state;
 
             return state;
         }
