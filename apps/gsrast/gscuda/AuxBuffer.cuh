@@ -26,6 +26,7 @@ namespace gscuda
         struct ImageState
         {
             float *depth;
+            float *outColor; // This is the temp outColor; we do buffer swaps to prevent epilepsy
             float *defaultDepth; // just a 1.0f stored in CUDA memory
 
             static ImageState fromChunk(char *&, int size);

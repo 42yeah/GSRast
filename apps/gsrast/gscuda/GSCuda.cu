@@ -61,7 +61,6 @@ namespace gscuda
         {
             outColor[idx + i * width * height] = background[i];
         }
-
     }
 
     /**
@@ -70,10 +69,10 @@ namespace gscuda
     __global__ void projectPoints(pc::GeometryState geoState,
                                   pc::ImageState imState,
                                   const float *means3D,
+                                  const float *shs,
                                   int numGaussians,
                                   const float *projMatrix,
-                                  int width, int height,
-                                  float *outColor)
+                                  int width, int height)
     {
         namespace cg = cooperative_groups;
         size_t idx = cg::this_grid().thread_rank();
@@ -95,7 +94,7 @@ namespace gscuda
         }
 
         // Step 3. find out corresponding pixel coordinate, and perform depth test
-        glm::vec2 imagePlane = glm::vec2(0.5f + 0.5 * projected.x * width, 0.5f + 0.5 * projected.y * height);
+        glm::vec2 imagePlane = glm::vec2((0.5f + 0.5 * projected.x) * width, (0.5f + 0.5 * projected.y) * height);
         glm::ivec2 pixelCoord = glm::ivec2((glm::int32) round(imagePlane.x), (glm::int32) round(imagePlane.y));
         if (pixelCoord.x < 0 || pixelCoord.x >= width || pixelCoord.y < 0 || pixelCoord.y >= height)
         {
@@ -106,21 +105,21 @@ namespace gscuda
         unsigned int old = atomicMin(reinterpret_cast<unsigned int *>(depthAtPixel), depth);
         if (depth >= old)
         {
-            if (idx < 10000)
-            {
-                printf("Depth test failed: %f, %f\n", *depthAtPixel, projected.z);
-            }
             return;
         }
 
-        // Step 4. at this point, only the following will happen:
+        // Step 4. sample colors
+        size_t shOffset = idx * 3 * 16; // 3 channels * 16 coefficients
+        glm::vec3 color = 0.4f * glm::vec3(shs[shOffset + 0], shs[shOffset + 1], shs[shOffset + 2]) + 0.5f;
+
+        // Step 5. at this point, only the following will happen:
         //         1. pass the atomic min: only one shall pass, since it is atomic. All others will fail
         //         2. fail the atomic min: the function is already ended
         // therefore, it's rasterizin' time.
         int colorOffset = pixelCoord.y * width + pixelCoord.x;
-        outColor[colorOffset + 0 * width * height] = 1.0f;
-        outColor[colorOffset + 1 * width * height] = 0.5f;
-        outColor[colorOffset + 2 * width * height] = 0.0f;
+        imState.outColor[colorOffset + 0 * width * height] = color.r;
+        imState.outColor[colorOffset + 1 * width * height] = color.g;
+        imState.outColor[colorOffset + 2 * width * height] = color.b;
     }
 
     void forwardPoints(
@@ -160,13 +159,11 @@ namespace gscuda
 
         // Step 1. clear the color buffer and depth buffer
         dim3 clearDim = { (unsigned int) width, (unsigned int) height, 1 };
-        clearColor<3><<<clearDim, 1>>>(outColor, background, width, height);
+        clearColor<3><<<clearDim, 1>>>(imState.outColor, background, width, height);
 
-        float a = 1.0f;
-        cudaMemcpy(imState.defaultDepth, &a, sizeof(float), cudaMemcpyHostToDevice);
-        std::cout << cudaGetErrorString(cudaGetLastError()) << std::endl;
-        assert(false);
-        // clearColor<1><<<clearDim, 1>>>(imState.defaultDepth, imState.depth, width, height);
+        constexpr float farthestDepth = 1.0f;
+        cudaMemcpy(imState.defaultDepth, &farthestDepth, sizeof(float), cudaMemcpyHostToDevice);
+        clearColor<1><<<clearDim, 1>>>(imState.depth, imState.defaultDepth, width, height);
 
         // std::cout << "Allocating 128-bit aligned " << imageBufferSize << " bytes of memory for image states" << std::endl;
 
@@ -174,7 +171,11 @@ namespace gscuda
         int numBlocks = (numGaussians + NUM_THREADS - 1) / NUM_THREADS;
         // std::cout << "Launching blocks: " << numBlocks << ", threads: " << NUM_THREADS << std::endl;
         assert(numBlocks <= 65535 && "Too many blocks (in one dimension)"); // https://en.wikipedia.org/wiki/Thread_block_(CUDA_programming)
-        projectPoints<<<numBlocks, NUM_THREADS>>>(geometryState, imState, means3D, numGaussians, projMatrix, width, height, outColor);
+        projectPoints<<<numBlocks, NUM_THREADS>>>(geometryState, imState, means3D, shs, numGaussians, projMatrix, width, height);
+        cudaDeviceSynchronize();
+
+        // Copy outColor from imState to the real outColor, using one copy call
+        cudaMemcpy(outColor, imState.outColor, width * height * sizeof(float) * 3, cudaMemcpyDeviceToDevice);
     }
 };
 
