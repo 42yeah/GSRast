@@ -1,6 +1,7 @@
 #pragma once 
 
 #include <functional>
+#include <glm/glm.hpp>
 
 /**
  * gscuda is the CUDA part of the GSRast, where we try to rasterize 
@@ -38,6 +39,35 @@ namespace gscuda
                        int *rects, // CUDA rects for fast culling
                        float *boxMin, // Unused; bounding box I think
                        float *boxMax);
+
+    void preprocess(int numGaussians, int shDims, int M,
+                    const glm::vec3 *means3D,
+                    const glm::vec3 *scales,
+                    const float scaleModifier,
+                    const glm::vec4 *rotations,
+                    const float *opacities,
+                    const float *shs,
+                    bool *clamped,
+                    const float *conv3DPrecomp,
+                    const float *colorsPrecomp,
+                    const float *viewMatrix,
+                    const float *projMatrix,
+                    const glm::vec3 *camPos,
+                    int width, int height,
+                    float focalDist,
+                    float tanFOVx, float tanFOVy,
+                    int *radii,
+                    glm::vec2 *means2D,
+                    float *depths,
+                    float *cov3Ds,
+                    glm::vec3 *rgb,
+                    glm::vec4 *conicOpacity,
+                    const dim3 grid,
+                    uint32_t *tilesTouched,
+                    bool prefiltered,
+                    glm::ivec2 *rects,
+                    glm::vec3 boxMin,
+                    glm::vec3 boxMax);
 
     void forward(std::function<char *(size_t)> geometryBuffer,
                  std::function<char *(size_t)> binningBuffer,
