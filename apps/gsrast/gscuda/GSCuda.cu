@@ -301,7 +301,7 @@ namespace gscuda
         glm::vec4 pointHom = projMat * glm::vec4(means3D[idx], 1.0f);
         float oneOverW = 1.0f / (0.001f + pointHom.w);
         glm::vec3 projected = oneOverW * glm::vec3(pointHom.x, pointHom.y, pointHom.z);
-        if (projected.z < 0.0f || projected.z > 1.0f || projected.x < -1.0f || projected.x > 1.0f || projected.y < -1.0f || projected.y > 1.0f)
+        if (projected.z < 0.0f || projected.z > 1.0f || projected.x < -1.3f || projected.x > 1.3f || projected.y < -1.3f || projected.y > 1.3f)
         {
             return;
         }
