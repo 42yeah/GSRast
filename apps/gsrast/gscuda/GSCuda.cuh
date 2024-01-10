@@ -1,5 +1,6 @@
 #pragma once 
 
+#include <cuda_runtime.h>
 #include <functional>
 #include <glm/glm.hpp>
 
@@ -80,6 +81,17 @@ namespace gscuda
                                       glm::ivec2 *rects);
 
     __global__ void identifyTileRanges(int numRendered, uint64_t *pointListKeys, glm::uvec2 *ranges);
+
+    void render(const dim3 grid, const dim3 block,
+                const glm::uvec2 *ranges, const uint32_t *pointList,
+                int width, int height,
+                const glm::vec2 *means2D,
+                const glm::vec3 *colors,
+                const glm::vec4 *conicOpacities,
+                float *finalT, // "accumAlpha"
+                uint32_t *nContrib,
+                const glm::vec3 *background,
+                float *outColor);
 
     void forward(std::function<char *(size_t)> geometryBuffer,
                  std::function<char *(size_t)> binningBuffer,

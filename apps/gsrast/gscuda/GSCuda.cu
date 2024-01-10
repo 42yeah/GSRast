@@ -232,7 +232,7 @@ namespace gscuda
 
     /**
      * getRects: straight ripoff functions from SIBR.
-     * I don't really understand WTF is going on here, so I am just gonna go ahead an take it.
+     * TODO: I don't really understand WTF is going on here, so I am just gonna go ahead an take it.
      */
     __forceinline__ __device__ void getRect(const glm::vec2 &p, int max_radius, glm::uvec2 &rect_min, glm::uvec2 &rect_max, dim3 grid)
     {
@@ -322,7 +322,7 @@ namespace gscuda
             cov3D = &cov3Ds[idx * 6];
         }
 
-        // 4. MAGIC 1: compute screen space covariance matrix
+        // 4. TODO: MAGIC 1: compute screen space covariance matrix
         glm::vec3 cov = computeCov2D(means3D[idx], focalDist, tanFOVx, tanFOVy, cov3D, viewMatrix);
 
         // 4.1. Invert covariance (what is happening here???)
@@ -537,6 +537,162 @@ namespace gscuda
         }
     }
 
+    /**
+     * Actually render stuffs to the screen.
+     */
+    __global__ void renderCUDA(const glm::uvec2 * __restrict__ ranges,
+                               const uint32_t * __restrict__ pointList,
+                               int width, int height,
+                               const glm::vec2 * __restrict__ means2D,
+                               const glm::vec3 * __restrict__ features, // "colors"
+                               const glm::vec4 * __restrict__ conicOpacities,
+                               float * __restrict__ finalT, // "accumAlpha"
+                               uint32_t * __restrict__ nContrib,
+                               const glm::vec3 * __restrict__ background,
+                               float * __restrict__ outColor)
+    {
+        namespace cg = cooperative_groups;
+        cg::thread_block block = cg::this_thread_block();
+
+        uint32_t numHorizontalBlocks = (width + BLOCK_W - 1) / BLOCK_W;
+        glm::uvec2 pixMin = glm::uvec2(block.group_index().x * BLOCK_W, block.group_index().y * BLOCK_H);
+        glm::uvec2 pixMax = glm::min(pixMin + glm::uvec2(BLOCK_W, BLOCK_H), glm::uvec2(width, height));
+
+        glm::uvec2 pix = glm::uvec2(pixMin.x + block.thread_index().x, pixMin.y + block.thread_index().y);
+        uint32_t pixId = pix.y * width + pix.x;
+
+        bool inside = pix.x < pixMax.x && pix.y < pixMax.y;
+        bool done = !inside;
+
+        const glm::uvec2 &range = ranges[block.group_index().y * numHorizontalBlocks + block.group_index().x];
+        constexpr int blockSize = BLOCK_W * BLOCK_H;
+        /**
+         * Since each block is 16x16, but actually have like, way more Gaussians in there sometimes,
+         * we will need to go for multiple rounds to process all of them.
+         */
+        int rounds = (range.y - range.x + blockSize - 1) / blockSize;
+        int work = range.y - range.x;
+
+        __shared__ int32_t collectedIds[blockSize];
+        __shared__ glm::vec2 collectedXYs[blockSize];
+        __shared__ glm::vec4 collectedConicOpacities[blockSize];
+        __shared__ glm::vec3 collectedColors[blockSize];
+
+        float accumAlpha = 1.0f;
+        uint32_t contributor = 0;
+        uint32_t lastContributor = 0;
+        glm::vec3 color = glm::vec3(0.0f);
+
+        /**
+         * The whole block will cooperate on fetching data and putting them into shared variables (faster this way)
+         * and process them, I think is what's happening.
+         */
+        for (int i = 0; i < rounds; i++, work -= blockSize)
+        {
+            /**
+             * If the whole block is done, then we're out
+             */
+            int numDone = __syncthreads_count(done);
+            if (numDone == blockSize)
+            {
+                break;
+            }
+
+            int progress = i * blockSize + block.thread_rank();
+            if (range.x + progress < range.y)
+            {
+                int collId = pointList[range.x + progress];
+                collectedIds[block.thread_rank()] = collId;
+                collectedXYs[block.thread_rank()] = means2D[collId];
+                collectedConicOpacities[block.thread_rank()] = conicOpacities[collId];
+                collectedColors[block.thread_rank()] = features[collId];
+            }
+            /**
+             * The whole block now syncs. Note, we don't really need this procedure, since we can fetch them directly from the block (I think.)
+             * Is it just because it is faster this way?
+             */
+            block.sync();
+
+            /**
+             * We now begin processing the data the whole block just collcetively fetched.
+             * Note, work at this point may be less than one full block (which means an unfull collected* array,)
+             * at which point we should just stop.
+             *
+             * In other words, we have at most 196 Gaussians to process, in this one pixel. Let's get goin'!
+             */
+            for (int j = 0; !done && j < glm::min(blockSize, work); j++)
+            {
+                contributor++;
+
+                const glm::vec2 &screenSpace = collectedXYs[j];
+                glm::vec2 delta = screenSpace - glm::vec2(pix);
+                glm::vec4 conicOpacity = collectedConicOpacities[j];
+                // "The alpha decays exponentially from the Gaussian center." I've read that somewhere in the paper. May not be
+                // completely the same though. Well, it was either in paper or in code.
+                // TODO: I have no idea what this equation means. SIBR explanation:
+                // Resample using conic matrix (cf. "Surface Splatting" by Zwicker et al., 2001)
+                float power = -0.5f * (conicOpacity.x * delta.x * delta.x + conicOpacity.z * delta.y * delta.y) - conicOpacity.y * delta.x * delta.y;
+
+                if (power > 0.0f)
+                {
+                    continue; // ?????
+                }
+
+                // Oh wait, here it is.
+                // Eq. (2) from 3D Gaussian splatting paper.
+                // Obtain alpha by multiplying with Gaussian opacity
+                // and its exponential falloff from mean.
+                // Avoid numerical instabilities (see paper appendix).
+                float alpha = glm::min(0.99f, conicOpacity.w * exp(power));
+                if (alpha < 1.0f / 255.0f)
+                {
+                    continue;
+                }
+                // Test the remaining alpha and see if it makes sense to continue the blend.
+                // TODO: Having questions.
+                float testNewAlpha = accumAlpha * (1.0f - alpha);
+                if (testNewAlpha < 0.001f)
+                {
+                    // No alpha left to fill; I'm out of here
+                    done = true;
+                    continue;
+                }
+
+                // Eq. 3 from the splatting paper.
+                color += collectedColors[j] * alpha * accumAlpha;
+                accumAlpha = testNewAlpha;
+
+                lastContributor = contributor;
+            }
+        }
+
+        // It is done. Write all things to output buffer
+        if (inside)
+        {
+            finalT[pixId] = accumAlpha;
+            nContrib[pixId] = lastContributor;
+            outColor[pixId + width * height * 0] = color.r + accumAlpha * background->r;
+            outColor[pixId + width * height * 1] = color.g + accumAlpha * background->g;
+            outColor[pixId + width * height * 2] = color.b + accumAlpha * background->b;
+        }
+    }
+
+    void render(const dim3 grid, const dim3 block,
+                const glm::uvec2 *ranges, const uint32_t *pointList,
+                int width, int height,
+                const glm::vec2 *means2D,
+                const glm::vec3 *colors,
+                const glm::vec4 *conicOpacities,
+                float *finalT, // "accumAlpha"
+                uint32_t *nContrib,
+                const glm::vec3 *background,
+                float *outColor)
+    {
+        renderCUDA<<<grid, block>>>(ranges, pointList, width, height,
+                                    means2D, colors, conicOpacities, finalT,
+                                    nContrib, background, outColor);
+    }
+
     void forward(std::function<char *(size_t)> geometryBuffer,
                  std::function<char *(size_t)> binningBuffer,
                  std::function<char *(size_t)> imageBuffer,
@@ -645,7 +801,14 @@ namespace gscuda
         cudaMemset(imState.ranges, 0, sizeof(glm::uvec2) * width * height);
         identifyTileRanges<<<(geomState.numRendered + 255) / 256, 256>>>(geomState.numRendered, binningState.pointListKeys, imState.ranges);
 
-        std::cout << "Would you be mad if it is unimplemented?" << std::endl;
+        const glm::vec3 *colorsPtr = colorsPrecomp ? (const glm::vec3 *) colorsPrecomp : geomState.rgb;
+        render(tileGrid, block,
+               imState.ranges, binningState.pointList,
+               width, height,
+               geomState.means2D, colorsPtr, geomState.conicOpacity,
+               imState.accumAlpha, imState.nContrib,
+               (const glm::vec3 *) background,
+               outColor);
     }
 };
 
