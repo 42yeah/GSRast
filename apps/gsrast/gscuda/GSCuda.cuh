@@ -69,6 +69,16 @@ namespace gscuda
                     glm::vec3 boxMin,
                     glm::vec3 boxMax);
 
+    __global__ void duplicateWithKeys(int numGaussians,
+                                      const glm::vec2 *means2D,
+                                      const float *depths,
+                                      const uint32_t *offsets,
+                                      uint64_t *gaussianKeysUnsorted,
+                                      uint32_t *gaussianValuesUnsorted,
+                                      int *radii,
+                                      dim3 grid,
+                                      glm::ivec2 *rects);
+
     void forward(std::function<char *(size_t)> geometryBuffer,
                  std::function<char *(size_t)> binningBuffer,
                  std::function<char *(size_t)> imageBuffer,

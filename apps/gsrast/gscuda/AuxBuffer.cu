@@ -77,13 +77,15 @@ namespace gscuda
             BinningState state;
             obtain(chunk, state.pointListKeysUnsorted, sizeof(uint64_t) * size, 128);
             obtain(chunk, state.pointListKeys, sizeof(uint64_t) * size, 128);
-            obtain(chunk, state.pointListUnsorted, sizeof(uint64_t) * size, 128);
-            obtain(chunk, state.pointList, sizeof(uint64_t) * size, 128);
+            obtain(chunk, state.pointListUnsorted, sizeof(uint32_t) * size, 128);
+            obtain(chunk, state.pointList, sizeof(uint32_t) * size, 128);
             // Estimate sorting size
             cub::DeviceRadixSort::SortPairs(nullptr, state.sortingSize,
                                             state.pointListKeysUnsorted, state.pointListKeys,
-                                            state.pointListUnsorted, state.pointListKeys, size);
+                                            state.pointListUnsorted, state.pointList, size);
             obtain(chunk, state.listSortingSpace, state.sortingSize, 128);
+
+            return state;
         }
     }
 }

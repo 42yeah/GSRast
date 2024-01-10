@@ -66,8 +66,8 @@ namespace gscuda
         {
             uint64_t *pointListKeysUnsorted;
             uint64_t *pointListKeys;
-            uint64_t *pointListUnsorted;
-            uint64_t *pointList;
+            uint32_t *pointListUnsorted;
+            uint32_t *pointList;
 
             size_t sortingSize;
             char *listSortingSpace;

@@ -424,7 +424,7 @@ namespace gscuda
                                       const float *depths,
                                       const uint32_t *offsets,
                                       uint64_t *gaussianKeysUnsorted,
-                                      uint64_t *gaussianValuesUnsorted,
+                                      uint32_t *gaussianValuesUnsorted,
                                       int *radii,
                                       dim3 grid,
                                       glm::ivec2 *rects)
