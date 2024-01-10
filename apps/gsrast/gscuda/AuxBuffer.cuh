@@ -39,6 +39,7 @@ namespace gscuda
         {
             uint32_t *tilesTouched;
             size_t scanSize;
+            uint32_t numRendered;
             char *scanningSpace;
             float *depths; // Projected depths
             bool *clamped;
@@ -59,6 +60,19 @@ namespace gscuda
             float *accumAlpha;
 
             static ImageState fromChunk(char *&, int size);
+        };
+
+        struct BinningState
+        {
+            uint64_t *pointListKeysUnsorted;
+            uint64_t *pointListKeys;
+            uint64_t *pointListUnsorted;
+            uint64_t *pointList;
+
+            size_t sortingSize;
+            char *listSortingSpace;
+
+            static BinningState fromChunk(char *&, int size);
         };
 
     }

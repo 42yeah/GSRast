@@ -10,6 +10,8 @@
 #include <cooperative_groups.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <cub/cub.cuh>
+#include "CudaHelpers.cuh"
 #include "AuxBuffer.cuh"
 
 #define NUM_THREADS 1024
@@ -41,7 +43,7 @@ namespace gscuda
     /**
      * This function projects all points to screen space (unit: pixel.)
      */
-    __global__ void projectPoints(pc::GeometryState geoState,
+    __global__ void projectPoints(pc::GeometryState geomState,
                                   pc::ImageState imState,
                                   const float *means3D,
                                   const float *shs,
@@ -412,6 +414,66 @@ namespace gscuda
                                                             boxMin, boxMax);
     }
 
+    /**
+     * For each Gaussian, duplicateWithKeys fills up their respective portion of
+     * unsorted point keys and so on. For example, if this Gaussian takes up 4 tiles in a screen,
+     * then four keys are gonna be duplicated. That's my guess.
+     */
+    __global__ void duplicateWithKeys(int numGaussians,
+                                      const glm::vec2 *means2D,
+                                      const float *depths,
+                                      const uint32_t *offsets,
+                                      uint64_t *gaussianKeysUnsorted,
+                                      uint64_t *gaussianValuesUnsorted,
+                                      int *radii,
+                                      dim3 grid,
+                                      glm::ivec2 *rects)
+    {
+        namespace cg = cooperative_groups;
+        size_t idx = cg::this_grid().thread_rank();
+        if (idx >= numGaussians)
+        {
+            return;
+        }
+
+        // We do not care for culled Gaussians
+        if (radii[idx] <= 0)
+        {
+            return;
+        }
+
+        // Find the offset of the Gaussian. During the inclusiveSum, the offset becomes
+        // 2, 3, 6, 8, ... etc, with each adding their own number of touched tiles.
+        uint32_t offset = (idx == 0) ? 0 : offsets[idx - 1];
+        glm::uvec2 rectMin, rectMax;
+        if (rects == nullptr)
+        {
+            getRect(means2D[idx], radii[idx], rectMin, rectMax, grid);
+        }
+        else
+        {
+            getRect(means2D[idx], rects[idx], rectMin, rectMax, grid);
+        }
+
+        // Later during sorting:
+        // Tile IDs will be in order
+        // Same tile IDs will have depths properly sorted (so long as depth is positive, comparison is correct)
+        for (int y = rectMin.y; y < rectMax.y; y++)
+        {
+            for (int x = rectMin.x; x < rectMax.x; x++)
+            {
+                // 0000 0000 0000 0000 TILE ID__ IS__ HERE DEPT H_IN TERP RETED _AS_ UINT 32_T ____
+                uint64_t key = y * grid.x + x;
+                key <<= 32;
+                const uint32_t &depth = reinterpret_cast<const uint32_t &>(depths[idx]);
+                key |= depth;
+                gaussianKeysUnsorted[offset] = key;
+                gaussianValuesUnsorted[offset] = idx;
+                offset++;
+            }
+        }
+    }
+
     void forward(std::function<char *(size_t)> geometryBuffer,
                  std::function<char *(size_t)> binningBuffer,
                  std::function<char *(size_t)> imageBuffer,
@@ -442,10 +504,10 @@ namespace gscuda
 
         size_t geometryBufferSize = required<GeometryState>(numGaussians);
         char *geoBuffer = geometryBuffer(geometryBufferSize);
-        GeometryState geoState = GeometryState::fromChunk(geoBuffer, numGaussians);
+        GeometryState geomState = GeometryState::fromChunk(geoBuffer, numGaussians);
         if (radii == nullptr)
         {
-            radii = geoState.internalRadii;
+            radii = geomState.internalRadii;
         }
 
         dim3 tileGrid = { (unsigned int) (width + BLOCK_W - 1) / BLOCK_W, (unsigned int) (height + BLOCK_H - 1) / BLOCK_H, 1 };
@@ -468,7 +530,7 @@ namespace gscuda
                    (glm::vec4 *) rotations,
                    opacities,
                    shs,
-                   geoState.clamped,
+                   geomState.clamped,
                    cov3DPrecomp,
                    colorsPrecomp,
                    viewMatrix, projMatrix, (glm::vec3 *) camPos,
@@ -476,16 +538,38 @@ namespace gscuda
                    focalDist,
                    tanFOVx, tanFOVy,
                    radii,
-                   geoState.means2D,
-                   geoState.depths,
-                   geoState.cov3D,
-                   geoState.rgb,
-                   geoState.conicOpacity,
+                   geomState.means2D,
+                   geomState.depths,
+                   geomState.cov3D,
+                   geomState.rgb,
+                   geomState.conicOpacity,
                    tileGrid,
-                   geoState.tilesTouched,
+                   geomState.tilesTouched,
                    prefiltered,
                    (glm::ivec2 *) rects,
                    minn, maxx);
+
+        // Preprocessed; next up get the full list of touched tiles
+        cub::DeviceScan::InclusiveSum(geomState.scanningSpace, geomState.scanSize, geomState.tilesTouched, geomState.pointOffsets, numGaussians);
+        cudaMemcpy(&geomState.numRendered, &geomState.pointOffsets[numGaussians - 1], sizeof(uint32_t), cudaMemcpyDeviceToHost);
+
+        // Pointless to go any farther
+        if (geomState.numRendered == 0)
+        {
+            return;
+        }
+
+        // BinningState is for per-numRendered, so that is sum(sum(tiles of this gaussian touched))
+        // It is (mostly) less than the total number of Gaussians due to culling
+        size_t binningBufferSize = required<BinningState>(geomState.numRendered);
+        char *binningBuf = binningBuffer(binningBufferSize);
+        BinningState binningState = BinningState::fromChunk(binningBuf, geomState.numRendered);
+
+        // Now we need to produce the keys
+        duplicateWithKeys<<<(numGaussians + 255 / 256), 256>>>(numGaussians, geomState.means2D, geomState.depths, geomState.pointOffsets,
+                                                               binningState.pointListKeysUnsorted, binningState.pointListUnsorted,
+                                                               radii, tileGrid, (glm::ivec2 *) rects);
+
 
         std::cout << "Would you be mad if it is unimplemented?" << std::endl;
     }

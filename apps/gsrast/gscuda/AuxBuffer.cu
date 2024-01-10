@@ -47,6 +47,7 @@ namespace gscuda
 
             obtain(chunk, state.tilesTouched, sizeof(uint32_t) * numGaussians, 128);
             cub::DeviceScan::InclusiveSum(nullptr, state.scanSize, state.tilesTouched, state.tilesTouched, numGaussians);
+            state.numRendered = 0;
             obtain(chunk, state.scanningSpace, state.scanSize, 128);
 
             obtain(chunk, state.depths, sizeof(float) * numGaussians, 128);
@@ -69,6 +70,20 @@ namespace gscuda
             obtain(chunk, state.accumAlpha, sizeof(float) * size, 128);
 
             return state;
+        }
+
+        BinningState BinningState::fromChunk(char *&chunk, int size)
+        {
+            BinningState state;
+            obtain(chunk, state.pointListKeysUnsorted, sizeof(uint64_t) * size, 128);
+            obtain(chunk, state.pointListKeys, sizeof(uint64_t) * size, 128);
+            obtain(chunk, state.pointListUnsorted, sizeof(uint64_t) * size, 128);
+            obtain(chunk, state.pointList, sizeof(uint64_t) * size, 128);
+            // Estimate sorting size
+            cub::DeviceRadixSort::SortPairs(nullptr, state.sortingSize,
+                                            state.pointListKeysUnsorted, state.pointListKeys,
+                                            state.pointListUnsorted, state.pointListKeys, size);
+            obtain(chunk, state.listSortingSpace, state.sortingSize, 128);
         }
     }
 }

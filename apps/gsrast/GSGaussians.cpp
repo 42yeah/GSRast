@@ -15,7 +15,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <GSCuda.cuh>
 
-// #define USE_GSCUDA
+#define USE_GSCUDA
 
 #ifdef USE_GSCUDA 
 #define FORWARD gscuda::forward
