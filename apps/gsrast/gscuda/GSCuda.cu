@@ -501,6 +501,42 @@ namespace gscuda
         return msb;
     }
 
+    __global__ void identifyTileRanges(int numRendered, uint64_t *pointListKeys, glm::uvec2 *ranges)
+    {
+        namespace cg = cooperative_groups;
+        size_t idx = cg::this_grid().thread_rank();
+        if (idx >= numRendered)
+        {
+            return;
+        }
+
+        uint64_t key = pointListKeys[idx]; // Remember, they are sorted at this point (which means a lot of them are probably like, the same)
+        uint32_t currentTile = key >> 32; // Recover the original tile
+        if (idx == 0)
+        {
+            ranges[currentTile].x = 0;
+        }
+        else
+        {
+            // Fuck me. Don't forget to bit shift!
+            uint32_t prevTile = pointListKeys[idx - 1] >> 32;
+            /**
+             * This only happens during the switching of tiles.
+             * As in, end of the old tile, and beginning of the new.
+             * Therefore, the previous tile ends at idx), and this tile starts at [idx.
+             */
+            if (prevTile != currentTile)
+            {
+                ranges[prevTile].y = idx;
+                ranges[currentTile].x = idx;
+            }
+            if (idx == numRendered - 1)
+            {
+                ranges[currentTile].y = numRendered;
+            }
+        }
+    }
+
     void forward(std::function<char *(size_t)> geometryBuffer,
                  std::function<char *(size_t)> binningBuffer,
                  std::function<char *(size_t)> imageBuffer,
@@ -604,9 +640,10 @@ namespace gscuda
                                         binningState.pointListKeysUnsorted, binningState.pointListKeys,
                                         binningState.pointListUnsorted, binningState.pointList,
                                         geomState.numRendered, 0, highestBit + 32);
-        std::cout << "Highest bits: " << (highestBit + 32) << std::endl;
-        std::cout << "Binning buffer size: " << binningBufferSize << ", numRendered: " << geomState.numRendered << std::endl;
-        std::cout << "Addr: " << (void *) binningState.pointListKeysUnsorted << ", " << (void *) binningState.pointListUnsorted << std::endl;
+
+        // Determine tile ranges
+        cudaMemset(imState.ranges, 0, sizeof(glm::uvec2) * width * height);
+        identifyTileRanges<<<(geomState.numRendered + 255) / 256, 256>>>(geomState.numRendered, binningState.pointListKeys, imState.ranges);
 
         std::cout << "Would you be mad if it is unimplemented?" << std::endl;
     }
