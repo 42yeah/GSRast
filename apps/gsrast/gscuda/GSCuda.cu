@@ -474,6 +474,33 @@ namespace gscuda
         }
     }
 
+    /**
+     * Find the Most Significant Bit (MSB) to
+     * accelerate the CUB RadixSort. getHigherMsb is a binary search to locate the highest bit.
+     */
+    uint32_t getHigherMsb(uint32_t n)
+    {
+        int msb = sizeof(uint32_t) * 4;
+        int step = msb;
+        while (step > 1)
+        {
+            step /= 2;
+            if (n >> msb)
+            {
+                msb += step;
+            }
+            else
+            {
+                msb -= step;
+            }
+        }
+        if (n >> msb)
+        {
+            msb++;
+        }
+        return msb;
+    }
+
     void forward(std::function<char *(size_t)> geometryBuffer,
                  std::function<char *(size_t)> binningBuffer,
                  std::function<char *(size_t)> imageBuffer,
@@ -514,7 +541,7 @@ namespace gscuda
         dim3 block = { BLOCK_W, BLOCK_H, 1 };
 
         size_t imageBufferSize = required<ImageState>(width * height);
-        char *imBuffer = imageBuffer(imageBufferSize);
+        char *imBuffer = imageBuffer(imageBufferSize + 128);
         ImageState imState = ImageState::fromChunk(imBuffer, width * height);
 
         constexpr float numericMin = std::numeric_limits<float>::lowest();
@@ -562,7 +589,7 @@ namespace gscuda
         // BinningState is for per-numRendered, so that is sum(sum(tiles of this gaussian touched))
         // It is (mostly) less than the total number of Gaussians due to culling
         size_t binningBufferSize = required<BinningState>(geomState.numRendered);
-        char *binningBuf = binningBuffer(binningBufferSize);
+        char *binningBuf = binningBuffer(binningBufferSize + 128);
         BinningState binningState = BinningState::fromChunk(binningBuf, geomState.numRendered);
 
         // Now we need to produce the keys
@@ -570,6 +597,16 @@ namespace gscuda
                                                                binningState.pointListKeysUnsorted, binningState.pointListUnsorted,
                                                                radii, tileGrid, (glm::ivec2 *) rects);
 
+        int highestBit = getHigherMsb(tileGrid.x * tileGrid.y);
+
+        // Sort Gaussians
+        cub::DeviceRadixSort::SortPairs(binningState.listSortingSpace, binningState.sortingSize,
+                                        binningState.pointListKeysUnsorted, binningState.pointListKeys,
+                                        binningState.pointListUnsorted, binningState.pointList,
+                                        geomState.numRendered, 0, highestBit + 32);
+        std::cout << "Highest bits: " << (highestBit + 32) << std::endl;
+        std::cout << "Binning buffer size: " << binningBufferSize << ", numRendered: " << geomState.numRendered << std::endl;
+        std::cout << "Addr: " << (void *) binningState.pointListKeysUnsorted << ", " << (void *) binningState.pointListUnsorted << std::endl;
 
         std::cout << "Would you be mad if it is unimplemented?" << std::endl;
     }
