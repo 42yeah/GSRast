@@ -1,7 +1,7 @@
 #pragma once
 
 #define DEFAULT_WINDOW_W 800
-#define DEFAULT_WINDOW_H 600
+#define DEFAULT_WINDOW_H 800
 #define WINDOW_TITLE "GSRaster"
 
 #include <memory>
@@ -21,6 +21,8 @@
 #define DEFAULT_NEAR 0.001f
 #define DEFAULT_FAR 100.0f
 #define DEFAULT_FOV glm::radians(45.0f)
+
+std::ostream &operator<<(std::ostream &os, const glm::vec2 &p);
 
 std::ostream &operator<<(std::ostream &os, const glm::vec3 &p);
 

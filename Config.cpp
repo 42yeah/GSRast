@@ -2,6 +2,11 @@
 
 GlobalStacks _stacks;
 
+std::ostream &operator<<(std::ostream &os, const glm::vec2 &p)
+{
+    return os << "(" << p.x << ", " << p.y << ")";
+}
+
 std::ostream &operator<<(std::ostream &os, const glm::vec3 &p)
 {
     return os << "(" << p.x << ", " << p.y << ", " << p.z << ")";
