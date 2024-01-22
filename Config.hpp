@@ -22,6 +22,8 @@
 #define DEFAULT_FAR 100.0f
 #define DEFAULT_FOV glm::radians(45.0f)
 
+#define NUM_CHANNELS 3
+
 std::ostream &operator<<(std::ostream &os, const glm::vec2 &p);
 
 std::ostream &operator<<(std::ostream &os, const glm::vec3 &p);

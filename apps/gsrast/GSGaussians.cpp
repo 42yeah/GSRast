@@ -4,12 +4,10 @@
 #include "FirstPersonCamera.hpp"
 #include "GSPointCloud.hpp"
 #include "CudaBuffer.hpp"
-#include "config.h"
 #include "Framebuffer.hpp"
 #include <cuda_runtime_api.h>
 #include <driver_types.h>
 #include <glm/matrix.hpp>
-#include <rasterizer.h>
 #include <memory>
 #include <vector>
 #include <glm/gtc/type_ptr.hpp>

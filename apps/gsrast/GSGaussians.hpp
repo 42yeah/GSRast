@@ -4,7 +4,6 @@
 #include "FirstPersonCamera.hpp"
 #include "GSPointCloud.hpp"
 #include <functional>
-#include <config.h>
 #include "ShaderBase.hpp"
 #include "CudaBuffer.hpp"
 
