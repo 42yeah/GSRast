@@ -53,8 +53,8 @@ public:
     int getNumGaussians() const;
     const BBox &getBBox() const;
 
-    const std::vector<glm::vec3> &getPositions() const;
-    const std::vector<glm::vec3> &getScales() const;
+    const std::vector<glm::vec4> &getPositions() const;
+    const std::vector<glm::vec4> &getScales() const;
     const std::vector<SHs<3> > &getSHs() const;
     const std::vector<glm::vec4> &getRotations() const;
     const std::vector<float> &getOpacities() const;
@@ -68,8 +68,8 @@ protected:
     int _numGaussians;
 
     BBox _bbox;
-    std::vector<glm::vec3> _positions;
-    std::vector<glm::vec3> _scales;
+    std::vector<glm::vec4> _positions;
+    std::vector<glm::vec4> _scales;
     std::vector<SHs<3> > _shs;
     std::vector<glm::vec4> _rotations;
     std::vector<float> _opacities;

@@ -47,8 +47,8 @@ bool SplatData::loadFromPly(const std::string &plyPath)
     _numGaussians = splatPtr->numSplats;
     for (const auto &sp : splatPtr->splats)
     {
-        _positions.push_back(sp.position);
-        _scales.push_back(glm::exp(sp.scale));
+        _positions.push_back(glm::vec4(sp.position, 1.0f));
+        _scales.push_back(glm::exp(glm::vec4(sp.scale, 1.0f)));
         _shs.push_back(sp.shs);
         _rotations.push_back(glm::normalize(sp.rotation));
         _opacities.push_back(sigmoid(sp.opacity));
@@ -81,12 +81,12 @@ const BBox &SplatData::getBBox() const
 }
 
 
-const std::vector<glm::vec3> &SplatData::getPositions() const
+const std::vector<glm::vec4> &SplatData::getPositions() const
 {
     return _positions;
 }
 
-const std::vector<glm::vec3> &SplatData::getScales() const
+const std::vector<glm::vec4> &SplatData::getScales() const
 {
     return _scales;
 }

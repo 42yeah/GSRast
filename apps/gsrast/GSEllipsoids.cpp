@@ -83,12 +83,13 @@ bool GSEllipsoids::configureFromSplatData(const SplatData::Ptr &splatData, const
     _scaleSSBO = generatePointsSSBO(splatData->getScales());
 
     // Configure SSBO: color
-    std::vector<glm::vec3> colors;
+    std::vector<glm::vec4> colors;
     for (int i = 0; i < _numInstances; i++)
     {
-        colors.push_back(glm::vec3(splatData->getSHs()[i].shs[0],
+        colors.push_back(glm::vec4(splatData->getSHs()[i].shs[0],
                                    splatData->getSHs()[i].shs[1],
-                                   splatData->getSHs()[i].shs[2]));
+                                   splatData->getSHs()[i].shs[2],
+                                   1.0f));
     }
     _colorSSBO = generatePointsSSBO(colors);
 

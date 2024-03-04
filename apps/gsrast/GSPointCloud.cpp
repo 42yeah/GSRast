@@ -21,14 +21,14 @@ bool GSPointCloud::configureFromSplatData(const SplatData::Ptr &splatData, const
     _shader = shader;
     glBindVertexArray(_vao);
     glBindBuffer(GL_ARRAY_BUFFER, _vbo);
-    const size_t posSize = sizeof(glm::vec3) * splatData->getNumGaussians();
+    const size_t posSize = sizeof(glm::vec4) * splatData->getNumGaussians();
     const size_t shSize = sizeof(SHs<3>) * splatData->getNumGaussians();
     glNamedBufferData(_vbo, (posSize + shSize), nullptr, GL_STATIC_DRAW);
     glNamedBufferSubData(_vbo, 0, posSize, _splatData->getPositions().data());
     glNamedBufferSubData(_vbo, posSize, shSize, _splatData->getSHs().data());
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), nullptr);
 
     // And now, spherical harmonics.
     glEnableVertexAttribArray(1);
