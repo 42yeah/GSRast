@@ -4,7 +4,6 @@
 #include "FirstPersonCamera.hpp"
 #include "GSPointCloud.hpp"
 #include "CudaBuffer.hpp"
-#include "config.h"
 #include "Framebuffer.hpp"
 #include <cuda_runtime_api.h>
 #include <driver_types.h>
@@ -15,7 +14,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <GSCuda.cuh>
 
-// #define USE_GSCUDA
+#define USE_GSCUDA
 
 #ifdef USE_GSCUDA 
 #define FORWARD gscuda::forward
@@ -23,6 +22,7 @@
 #define FORWARD CudaRasterizer::Rasterizer::forward
 #endif 
 
+// Functionals which acts as little classes (buffer holders.)
 // Taken directly from SIBR_Viewers.
 std::function<char* (size_t N)> resizeFunctional(void** ptr, size_t& S) {
     auto lambda = [ptr, &S](size_t N)
@@ -76,6 +76,8 @@ GSGaussians::GSGaussians(int width, int height, FirstPersonCamera::Ptr camera) :
     _geomBufferFunc = resizeFunctional(&_geomPtr, _allocatedGeom);
     _binningBufferFunc = resizeFunctional(&_binningPtr, _allocatedBinning);
     _imgBufferFunc = resizeFunctional(&_imgPtr, _allocatedImg);
+
+    _splatData = nullptr;
 }
 
 GSGaussians::~GSGaussians()
@@ -104,69 +106,35 @@ int GSGaussians::getHeight() const
     return _height;
 }
 
-bool GSGaussians::configureFromPly(const std::string &path, ShaderBase::Ptr shader)
+bool GSGaussians::configureFromSplatData(const SplatData::Ptr &splatData, const ShaderBase::Ptr &shader)
 {
-    const auto splats = loadFromSplatsPly(path);
-    if (!splats->valid)
+    if (!splatData->isValid())
     {
         return false;
     }
 
-    _center = glm::vec3(0.0f);
-    _numGaussians = splats->numSplats;
+    _splatData = splatData;
+    _center = splatData->getCenter();
+    _numGaussians = splatData->getNumGaussians();
+    _bbox = splatData->getBBox();
 
-    std::vector<glm::vec3> points;
-    points.resize(splats->numSplats);
-    _bbox.reset();
-    for (int i = 0; i < splats->numSplats; i++)
-    {
-        points[i] = splats->splats[i].position;
-        _center += points[i];
-        _bbox.enclose(points[i]);
-    }
-    if (splats->numSplats > 0)
-    {
-        _center /= points.size();
-    }
-    _positions->memcpy((float *) points.data(), (int) points.size() * sizeof(glm::vec3));
+    _positions->memcpy((float *) splatData->getPositions().data(),
+                       (int) splatData->getPositions().size() * sizeof(glm::vec4));
 
-    for (int i = 0; i < splats->numSplats; i++)
-    {
-        const glm::vec3 &scale = splats->splats[i].scale;
-        points[i] = glm::vec3(exp(scale.x), exp(scale.y), exp(scale.z));
-    }
-    _scales->memcpy((float *) points.data(), (int) points.size() * sizeof(glm::vec3));
-    points = std::vector<glm::vec3>(); // Clear the vector data
+    _scales->memcpy((float *) splatData->getScales().data(),
+                    (int) splatData->getScales().size() * sizeof(glm::vec4));
 
-    std::vector<SHs<3> > shs;
-    shs.resize(splats->numSplats);
-    for (int i = 0; i < splats->numSplats; i++)
-    {
-        shs[i] = splats->splats[i].shs;
-    }
-    _shs->memcpy((float *) shs.data(), (int) shs.size() * sizeof(SHs<3>));
-    shs = std::vector<SHs<3> >();
+    _shs->memcpy((float *) splatData->getSHs().data(),
+                 (int) splatData->getSHs().size() * sizeof(SHs<3>));
 
-    std::vector<glm::vec4> rotations;
-    rotations.resize(splats->numSplats);
-    for (int i = 0; i < splats->numSplats; i++)
-    {
-        rotations[i] = glm::normalize(splats->splats[i].rotation);
-    }
-    _rotations->memcpy((float *) rotations.data(), (int) rotations.size() * sizeof(glm::vec4));
-    rotations = std::vector<glm::vec4>();
+    _rotations->memcpy((float *) splatData->getRotations().data(),
+                       (int) splatData->getRotations().size() * sizeof(glm::vec4));
 
-    std::vector<float> opacities;
-    opacities.resize(splats->numSplats);
-    for (int i = 0; i < splats->numSplats; i++)
-    {
-        opacities[i] = sigmoid(splats->splats[i].opacity);
-    }
-    _opacities->memcpy((float *) opacities.data(), (int) opacities.size() * sizeof(float));
-    opacities = std::vector<float>();
+    _opacities->memcpy((float *) splatData->getOpacities().data(),
+                       (int) splatData->getOpacities().size() * sizeof(float));
 
     // ???
-    _rects->allocate(sizeof(int) * 2 * splats->numSplats);
+    _rects->allocate(sizeof(int) * 2 * _numGaussians);
 
     std::cout << "Loading report: " << std::endl
         << "positions: " << _positions->size() << std::endl

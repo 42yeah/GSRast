@@ -4,9 +4,9 @@ add_executable(gsrast main.cpp
     GSPointCloud.cpp
     GSEllipsoids.cpp
     SplatShader.cpp
-    # GSGaussians.cpp
+    GSGaussians.cpp
     CudaBuffer.cpp
-    # CopyShader.cpp
+    CopyShader.cpp
     DebugCamera.cpp
     SplatData.cpp)
 

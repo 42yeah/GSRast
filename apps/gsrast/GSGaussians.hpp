@@ -4,9 +4,9 @@
 #include "FirstPersonCamera.hpp"
 #include "GSPointCloud.hpp"
 #include <functional>
-#include <config.h>
 #include "ShaderBase.hpp"
 #include "CudaBuffer.hpp"
+#include "SplatData.hpp"
 
 /**
  * This part of application invokes the graphdeco-inria/diff-gaussian-rasterization to render Gaussian Splats.
@@ -24,7 +24,7 @@ public:
     int getWidth() const;
     int getHeight() const;
 
-    virtual bool configureFromPly(const std::string &path, ShaderBase::Ptr shader) override;
+    virtual bool configureFromSplatData(const SplatData::Ptr &splatData, const ShaderBase::Ptr &shader) override;
     virtual void draw() override;
 
 protected:
@@ -43,4 +43,5 @@ protected:
     std::function<char *(size_t)> _geomBufferFunc, _binningBufferFunc, _imgBufferFunc;
     void *_geomPtr, *_binningPtr, *_imgPtr;
     size_t _allocatedGeom, _allocatedBinning, _allocatedImg;
+    SplatData::Ptr _splatData;
 };

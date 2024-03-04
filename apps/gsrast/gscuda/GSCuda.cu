@@ -259,8 +259,8 @@ namespace gscuda
     }
 
     __global__ void preprocessCUDA(int numGaussians, int shDims, int M,
-                              const glm::vec3 *means3D, // called "origPoints" in DGR
-                              const glm::vec3 *scales,
+                              const glm::vec4 *means3D, // called "origPoints" in DGR
+                              const glm::vec4 *scales,
                               const float scaleModifier,
                               const glm::vec4 *rotations,
                               const float *opacities,
@@ -300,7 +300,7 @@ namespace gscuda
 
         // 2. Cull outside gaussians.
         const glm::mat4 &projMat = reinterpret_cast<const glm::mat4 &>(*projMatrix);
-        glm::vec4 pointHom = projMat * glm::vec4(means3D[idx], 1.0f);
+        glm::vec4 pointHom = projMat * means3D[idx];
         float oneOverW = 1.0f / (0.001f + pointHom.w);
         glm::vec3 projected = oneOverW * glm::vec3(pointHom.x, pointHom.y, pointHom.z);
         if (projected.z < 0.0f || projected.z > 1.0f || projected.x < -1.3f || projected.x > 1.3f || projected.y < -1.3f || projected.y > 1.3f)
@@ -318,7 +318,7 @@ namespace gscuda
         }
         else
         {
-            computeCov3D(scales[idx], scaleModifier, rotations[idx], &cov3Ds[idx * 6]);
+            computeCov3D(glm::vec3(scales[idx]), scaleModifier, rotations[idx], &cov3Ds[idx * 6]);
             cov3D = &cov3Ds[idx * 6];
         }
 
@@ -375,8 +375,8 @@ namespace gscuda
     }
 
     void preprocess(int numGaussians, int shDims, int M,
-                    const glm::vec3 *means3D,
-                    const glm::vec3 *scales,
+                    const glm::vec4 *means3D,
+                    const glm::vec4 *scales,
                     const float scaleModifier,
                     const glm::vec4 *rotations,
                     const float *opacities,
@@ -743,8 +743,8 @@ namespace gscuda
 
         // Preprocess time!
         preprocess(numGaussians, shDims, M,
-                   (glm::vec3 *) means3D,
-                   (glm::vec3 *) scales,
+                   (glm::vec4 *) means3D,
+                   (glm::vec4 *) scales,
                    scaleModifier,
                    (glm::vec4 *) rotations,
                    opacities,

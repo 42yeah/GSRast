@@ -42,8 +42,8 @@ namespace gscuda
                        float *boxMax);
 
     void preprocess(int numGaussians, int shDims, int M,
-                    const glm::vec3 *means3D,
-                    const glm::vec3 *scales,
+                    const glm::vec4 *means3D,
+                    const glm::vec4 *scales,
                     const float scaleModifier,
                     const glm::vec4 *rotations,
                     const float *opacities,
@@ -93,6 +93,13 @@ namespace gscuda
                 const glm::vec3 *background,
                 float *outColor);
 
+    /**
+     * I am the forward function responsible for
+     * rendering stuffs onto the outColor array.
+     * I am different from diff_gaussian_rasterizer's parameters
+     * because I am too lazy to create another copy of the massive
+     * positions and scales, and therefore they use glm::vec4.
+     */
     void forward(std::function<char *(size_t)> geometryBuffer,
                  std::function<char *(size_t)> binningBuffer,
                  std::function<char *(size_t)> imageBuffer,

@@ -53,6 +53,12 @@ public:
     int getNumGaussians() const;
     const BBox &getBBox() const;
 
+    /**
+     * The positions and scales are vec4 due to the fact that
+     * SSBO will err because of some weird memory alignment issues
+     * (with vec3). I don't see this documented on the wiki but it
+     * is what it is.
+     */
     const std::vector<glm::vec4> &getPositions() const;
     const std::vector<glm::vec4> &getScales() const;
     const std::vector<SHs<3> > &getSHs() const;

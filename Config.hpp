@@ -1,7 +1,7 @@
 #pragma once
 
-#define DEFAULT_WINDOW_W 800
-#define DEFAULT_WINDOW_H 800
+#define DEFAULT_WINDOW_W 1024
+#define DEFAULT_WINDOW_H 768
 #define WINDOW_TITLE "GSRaster"
 
 #include <memory>
@@ -42,3 +42,7 @@ struct GlobalStacks
 };
 
 GlobalStacks &stacks();
+
+#define NUM_CHANNELS 3 // Default 3, RGB
+#define BLOCK_X 16
+#define BLOCK_Y 16
