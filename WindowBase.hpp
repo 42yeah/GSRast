@@ -4,11 +4,12 @@
 #include <memory>
 #include "DrawBase.hpp"
 #include "Config.hpp"
+#include "RenderTarget.hpp"
 #include "CameraBase.hpp"
 
 class CameraBase;
 
-class WindowBase
+class WindowBase : public RenderTarget
 {
 public:
     CLASS_PTRS(WindowBase)
@@ -19,6 +20,7 @@ public:
     virtual void pollEvents() = 0;
     virtual void swapBuffers() const = 0;
 
+    // WindowBase does not implemente RenderTarget functions
     virtual void clear(glm::vec4 clearColor) = 0;
     virtual void drawFrame() = 0;
     virtual void addDrawable(std::shared_ptr<DrawBase>) = 0;

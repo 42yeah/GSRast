@@ -21,5 +21,4 @@ BasicWindow::BasicWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WIND
 
 BasicWindow::~BasicWindow()
 {
-
 }

@@ -61,11 +61,6 @@ GLuint generatePointsSSBO(const std::vector<T> &points)
     return ret;
 }
 
-float sigmoid(float n)
-{
-    return 1.0f / (1.0f + exp(-n));
-}
-
 bool GSEllipsoids::configureFromPly(const std::string &path, ShaderBase::Ptr shader)
 {
     const auto splatPtr = loadFromSplatsPly(path);

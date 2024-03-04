@@ -16,7 +16,9 @@ public:
     const glm::vec3 &getCenter() const;
 
     GSPointCloud();
-    ~GSPointCloud();
+    virtual ~GSPointCloud();
+
+    static float sigmoid(float x);
 
 protected:
     // Spherical harmonics struct taken from GS source code.

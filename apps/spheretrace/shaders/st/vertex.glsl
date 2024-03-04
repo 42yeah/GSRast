@@ -9,10 +9,12 @@ uniform mat4 perspective;
 
 out vec3 boxNormal;
 out vec3 worldPos;
+out mat4 ellipsoidModel;
 
 void main() {
     vec4 wPos = model * vec4(aPos, 1.0);
     worldPos = vec3(wPos);
     boxNormal = vec3(model * vec4(aNormal, 0.0));
     gl_Position = perspective * view * wPos;
+    ellipsoidModel = model;
 }

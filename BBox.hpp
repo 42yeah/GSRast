@@ -17,3 +17,4 @@ struct BBox
     glm::vec3 min, max, center;
     bool infinite;
 };
+

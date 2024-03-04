@@ -12,7 +12,7 @@ class ShaderBase
 public:
     CLASS_PTRS(ShaderBase)
 
-    ~ShaderBase();
+    virtual ~ShaderBase();
 
     virtual void update(const WindowBase &window);
     virtual void use(const DrawBase &draw);

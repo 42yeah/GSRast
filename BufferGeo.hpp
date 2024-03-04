@@ -11,7 +11,7 @@ public:
     CLASS_PTRS(BufferGeo)
 
     BufferGeo();
-    ~BufferGeo();
+    virtual ~BufferGeo();
 
     virtual void configure(float *data, int numVerts, int dataSize, ShaderBase::Ptr shader);
 

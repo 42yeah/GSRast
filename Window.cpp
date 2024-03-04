@@ -29,6 +29,7 @@ Window::Window(const std::string &window_name, int width, int height) : WindowBa
     }
 
     _window = glfwCreateWindow(width, height, window_name.c_str(), nullptr, nullptr);
+    stacks().viewportStack.push({ 0, 0, width, height });
     if (!_window)
     {
         std::cerr << "No window created?" << std::endl;

@@ -10,7 +10,7 @@ public:
     CLASS_PTRS(SimpleShader)
 
     SimpleShader();
-    ~SimpleShader();
+    virtual ~SimpleShader();
 
     virtual bool valid() override;
 };

@@ -1,11 +1,12 @@
 #pragma once
 
 #define DEFAULT_WINDOW_W 800
-#define DEFAULT_WINDOW_H 600
+#define DEFAULT_WINDOW_H 800
 #define WINDOW_TITLE "GSRaster"
 
 #include <memory>
 #include <iostream>
+#include <stack>
 #include <glm/glm.hpp>
 
 #define CLASS_PTRS(CLASS_NAME) \
@@ -21,6 +22,23 @@
 #define DEFAULT_FAR 100.0f
 #define DEFAULT_FOV glm::radians(45.0f)
 
+std::ostream &operator<<(std::ostream &os, const glm::vec2 &p);
+
 std::ostream &operator<<(std::ostream &os, const glm::vec3 &p);
 
 std::ostream &operator<<(std::ostream &os, const glm::vec4 &p);
+
+std::ostream &operator<<(std::ostream &os, const glm::mat4 &m);
+
+struct Viewport
+{
+    int x, y, w, h;
+};
+
+struct GlobalStacks
+{
+    std::stack<Viewport> viewportStack;
+    std::stack<unsigned int> framebufferStack;
+};
+
+GlobalStacks &stacks();
