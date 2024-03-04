@@ -7,6 +7,8 @@
 #include "WindowBase.hpp"
 #include "Config.hpp"
 #include "FirstPersonCamera.hpp"
+#include <imgui.h>
+
 
 class Window : public WindowBase
 {
@@ -43,6 +45,8 @@ protected:
     virtual void cursorPosCallback(double x, double y);
     virtual void keyCallback(int key, int scancode, int action, int mods);
 
+    bool initImGui();
+
     GLFWwindow *_window;
     int _w, _h;
     bool _valid;
@@ -58,4 +62,7 @@ protected:
         bool initialized;
     } _prevCursorPos;
     glm::vec2 _cursorDelta;
+
+    // imgui
+    bool _imguiInitialized;
 };

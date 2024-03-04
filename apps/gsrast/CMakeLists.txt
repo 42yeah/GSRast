@@ -18,6 +18,7 @@ target_link_libraries(gsrast PUBLIC
     base
     CudaRasterizer
     CUDA::cudart
-    gscuda)
+    gscuda
+    imgui)
 
 add_subdirectory(shaders)

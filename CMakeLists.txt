@@ -26,14 +26,15 @@ add_executable(basic main.cpp ${SOURCES})
 target_link_libraries(basic PUBLIC
     glfw
     glm::glm
-    glad)
+    glad
+    imgui)
 
 add_library(base ${SOURCES})
-target_include_directories(base INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(base PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(base PUBLIC
     glfw
     glm::glm
     glad
-    cimgui)
+    imgui)
 
 add_subdirectory(apps)

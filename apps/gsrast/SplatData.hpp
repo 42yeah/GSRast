@@ -33,10 +33,13 @@ struct GSSplats
 
 
 /**
- * I am the representation of a splat data.
+ * I am the centralized representation of the splat data.
  * I am responsible for making sure that I can be passed onto
  * Gaussian renderers, regardless of my correctness state.
  * They will invoke my various getters, and I must not fail.
+ * Hopefully, in the future I will take care of the GPU data as
+ * well; so all visualization methods need not re-initialization
+ * (and taking up multiple copies).
  */
 class SplatData
 {

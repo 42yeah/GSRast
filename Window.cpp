@@ -1,12 +1,13 @@
 #include "Window.hpp"
 #include "DrawBase.hpp"
-#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <memory>
 #include <map>
 #include "CameraBase.hpp"
 #include "FirstPersonCamera.hpp"
+#include <backends/imgui_impl_opengl3.cpp>
+#include <backends/imgui_impl_glfw.cpp>
 
 bool baseInitialized = false;
 int aliveWindows = 0;
@@ -56,6 +57,13 @@ Window::Window(const std::string &window_name, int width, int height) : WindowBa
 
     glfwSetCursorPosCallback(_window, glfwCursorPosCallback);
     glfwSetKeyCallback(_window, glfwKeyCallback);
+
+    // Might as well initialize ImGui
+    if (!initImGui())
+    {
+        std::cerr << "Failed to init ImGui?" << std::endl;
+        _valid = false;
+    }
 
     glEnable(GL_DEPTH_TEST);
 }
@@ -223,3 +231,18 @@ void Window::keyCallback(int key, int scancode, int action, int mods)
     }
 }
 
+bool Window::initImGui()
+{
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+
+    ImGui_ImplGlfw_InitForOpenGL(_window, true);
+    ImGui_ImplOpenGL3_Init("#version 460 core");
+
+    // Also load in that sweet Chinese font
+    // io.Fonts->AddFontFromMemoryCompressedTTF(phoenixTTFCompressedData(), phoenixTTFCompressedSize(), 20, nullptr, io.Fonts->GetGlyphRangesChineseFull());
+
+    _imguiInitialized = true;
+    return true;
+}
