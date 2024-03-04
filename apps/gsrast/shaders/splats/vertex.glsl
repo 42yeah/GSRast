@@ -3,13 +3,13 @@
 layout (location = 0) in vec3 aPos;
 
 layout (std430, binding = 0) buffer splatPosition {
-    vec4 positions[];
+    vec3 positions[];
 };
 layout (std430, binding = 1) buffer splatScale {
-    vec4 scales[];
+    vec3 scales[];
 };
 layout (std430, binding = 2) buffer splatColor {
-    float colors[];
+    vec3 colors[];
 };
 layout (std430, binding = 3) buffer splatQuat {
     vec4 quats[];
@@ -37,12 +37,12 @@ mat3 quatToMat(vec4 q) {
 }
 
 void main() {
-    vec3 scale = vec3(scales[gl_InstanceID]) * 2.0;
+    vec3 scale = scales[gl_InstanceID] * 2.0;
     vec3 scaled = scale * aPos;
     mat3 rot = quatToMat(quats[gl_InstanceID]);
 
     vec3 rotated = rot * scaled;
-    vec3 posOffset = rotated + vec3(positions[gl_InstanceID]);
+    vec3 posOffset = rotated + positions[gl_InstanceID];
     vec4 mPos = vec4(posOffset, 1.0);
 
     position = vec3(mPos);
@@ -52,7 +52,5 @@ void main() {
     ellipsoidAlpha = alphas[gl_InstanceID];
 
     gl_Position = perspective * view * model * mPos;
-//     int colorOff = gl_InstanceID * 48;
-//     color = vec3(colors[colorOff], colors[colorOff + 1], colors[colorOff + 2]) * 0.2 + vec3(0.5, 0.5, 0.5);
-    color = vec3(1.0, 0.5, 0.0);
+    color = vec3(colors[gl_InstanceID]) * 0.2 + vec3(0.5, 0.5, 0.5);
 }

@@ -12,7 +12,7 @@
 GSRastWindow::GSRastWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WINDOW_H)
 {
     configureFirstPersonCamera();
-    // _firstPersonCamera->setInvertUp(true);
+    _firstPersonCamera->setInvertUp(true);
     _pcShader = std::make_shared<PointCloudShader>(_firstPersonCamera);
     _splatShader = std::make_shared<SplatShader>(_firstPersonCamera);
     // _copyShader = std::make_shared<CopyShader>();
@@ -46,8 +46,8 @@ GSRastWindow::GSRastWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WI
         addDrawable(gsPtr);
         _firstPersonCamera->setPosition(gsPtr->getCenter() - glm::vec3(0.0f, 0.0f, 5.0f));
         _firstPersonCamera->lookAt(gsPtr->getCenter());
-        _firstPersonCamera->setNearFar(0.001f * far, far);
-        _firstPersonCamera->setSpeed(far * 0.1f);
+        // _firstPersonCamera->setNearFar(0.001f * far, far);
+        // _firstPersonCamera->setSpeed(far * 0.1f);
     }
 
     // Draw Gaussians

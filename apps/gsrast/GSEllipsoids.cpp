@@ -70,7 +70,7 @@ bool GSEllipsoids::configureFromSplatData(const SplatData::Ptr &splatData, const
     }
     _splatData = splatData;
     _numInstances = splatData->getNumGaussians();
-    _bbox.reset();
+    _bbox = splatData->getBBox();
     _center = glm::vec3(0.0f);
 
     _numVerts = 36;
@@ -83,7 +83,14 @@ bool GSEllipsoids::configureFromSplatData(const SplatData::Ptr &splatData, const
     _scaleSSBO = generatePointsSSBO(splatData->getScales());
 
     // Configure SSBO: color
-    _colorSSBO = generatePointsSSBO(splatData->getSHs());
+    std::vector<glm::vec3> colors;
+    for (int i = 0; i < _numInstances; i++)
+    {
+        colors.push_back(glm::vec3(splatData->getSHs()[i].shs[0],
+                                   splatData->getSHs()[i].shs[1],
+                                   splatData->getSHs()[i].shs[2]));
+    }
+    _colorSSBO = generatePointsSSBO(colors);
 
     // Configure SSBO: quaternion
     // https://automaticaddison.com/how-to-convert-a-quaternion-to-a-rotation-matrix/
