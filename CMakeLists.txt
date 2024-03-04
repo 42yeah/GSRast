@@ -33,6 +33,7 @@ target_include_directories(base INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(base PUBLIC
     glfw
     glm::glm
-    glad)
+    glad
+    cimgui)
 
 add_subdirectory(apps)

@@ -1,4 +1,5 @@
 #include "GSEllipsoids.hpp"
+#include "apps/gsrast/SplatData.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 
 float cube[] = {
@@ -61,70 +62,35 @@ GLuint generatePointsSSBO(const std::vector<T> &points)
     return ret;
 }
 
-bool GSEllipsoids::configureFromPly(const std::string &path, ShaderBase::Ptr shader)
+bool GSEllipsoids::configureFromSplatData(const SplatData::Ptr &splatData, const ShaderBase::Ptr &shader)
 {
-    const auto splatPtr = loadFromSplatsPly(path);
-    if (!splatPtr)
+    if (!splatData->isValid())
     {
         return false;
     }
-    _numInstances = splatPtr->numSplats;
+    _splatData = splatData;
+    _numInstances = splatData->getNumGaussians();
     _bbox.reset();
     _center = glm::vec3(0.0f);
 
     _numVerts = 36;
     configure(cube, _numVerts, sizeof(cube), shader);
 
-    std::vector<glm::vec4> points;
-    std::vector<float> alphas;
-    points.resize(splatPtr->numSplats);
-    alphas.resize(splatPtr->numSplats);
-
     // configure SSBO: position
-    for (int i = 0; i < splatPtr->splats.size(); i++)
-    {
-        glm::vec3 pos = splatPtr->splats[i].position;
-        _bbox.enclose(pos);
-        _center += pos;
-        points[i] = glm::vec4(pos.x, pos.y, pos.z, 1.0f);
-    }
-    if (splatPtr->splats.size() > 0)
-    {
-        _center /= splatPtr->splats.size();
-    }
-    _positionSSBO = generatePointsSSBO(points);
+    _positionSSBO = generatePointsSSBO(splatData->getPositions());
 
     // configure SSBO: scale
-    for (int i = 0; i < splatPtr->splats.size(); i++)
-    {
-        const glm::vec3 &scale = splatPtr->splats[i].scale;
-        points[i] = glm::vec4(exp(scale.x), exp(scale.y), exp(scale.z), 1.0f);
-    }
-    _scaleSSBO = generatePointsSSBO(points);
+    _scaleSSBO = generatePointsSSBO(splatData->getScales());
 
     // Configure SSBO: color
-    for (int i = 0; i < splatPtr->splats.size(); i++)
-    {
-        const SHs<3> &shs = splatPtr->splats[i].shs;
-        glm::vec4 color = glm::vec4(shs.shs[0], shs.shs[1], shs.shs[2], 1.0f);
-        points[i] = color;
-    }
-    _colorSSBO = generatePointsSSBO(points);
+    _colorSSBO = generatePointsSSBO(splatData->getSHs());
 
     // Configure SSBO: quaternion
     // https://automaticaddison.com/how-to-convert-a-quaternion-to-a-rotation-matrix/
     // NOTE to self: if it gets too laggy in the future, convert this to a rotation matrix
-    for (int i = 0; i < splatPtr->splats.size(); i++)
-    {
-        points[i] = glm::normalize(splatPtr->splats[i].rotation);
-    }
-    _quatSSBO = generatePointsSSBO(points);
+    _quatSSBO = generatePointsSSBO(splatData->getRotations());
 
-    for (int i = 0; i < splatPtr->splats.size(); i++)
-    {
-        alphas[i] = sigmoid(splatPtr->splats[i].opacity);
-    }
-    _alphaSSBO = generatePointsSSBO(alphas);
+    _alphaSSBO = generatePointsSSBO(splatData->getOpacities());
 
     // The loaded model is somehow upside down; refer to GSPC for more detail
     // _model = glm::scale(_model, glm::vec3(-1.0f, -1.0f, 1.0f));
@@ -136,6 +102,10 @@ void GSEllipsoids::draw()
 {
     // The difference is here; how it is drawn.
     if (_shader) _shader->use(*this);
+    else
+    {
+        std::cout << "No shader ???" << std::endl;
+    }
 
     // Bind buffer bases.
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, _positionSSBO);
@@ -161,6 +131,7 @@ GSEllipsoids::GSEllipsoids() : GSPointCloud()
     _colorSSBO = GL_NONE;
     _quatSSBO = GL_NONE;
     _alphaSSBO = GL_NONE;
+    _splatData = nullptr;
 }
 
 GSEllipsoids::~GSEllipsoids()

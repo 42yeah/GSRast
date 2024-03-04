@@ -1,3 +1,6 @@
 [submodule "deps/diff-gaussian-rasterization"]
 	path = deps/diff-gaussian-rasterization
 	url = https://github.com/graphdeco-inria/diff-gaussian-rasterization
+[submodule "deps/cimgui"]
+	path = deps/cimgui
+	url = https://github.com/cimgui/cimgui

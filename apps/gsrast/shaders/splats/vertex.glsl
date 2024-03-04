@@ -9,7 +9,7 @@ layout (std430, binding = 1) buffer splatScale {
     vec4 scales[];
 };
 layout (std430, binding = 2) buffer splatColor {
-    vec4 colors[];
+    float colors[];
 };
 layout (std430, binding = 3) buffer splatQuat {
     vec4 quats[];
@@ -52,5 +52,7 @@ void main() {
     ellipsoidAlpha = alphas[gl_InstanceID];
 
     gl_Position = perspective * view * model * mPos;
-    color = vec3(colors[gl_InstanceID]) * 0.2 + vec3(0.5, 0.5, 0.5);
+//     int colorOff = gl_InstanceID * 48;
+//     color = vec3(colors[colorOff], colors[colorOff + 1], colors[colorOff + 2]) * 0.2 + vec3(0.5, 0.5, 0.5);
+    color = vec3(1.0, 0.5, 0.0);
 }
