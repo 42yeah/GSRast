@@ -6,6 +6,7 @@
 #include <map>
 #include "CameraBase.hpp"
 #include "FirstPersonCamera.hpp"
+#include "Font.hpp"
 #include <backends/imgui_impl_opengl3.cpp>
 #include <backends/imgui_impl_glfw.cpp>
 
@@ -240,9 +241,14 @@ bool Window::initImGui()
     ImGui_ImplGlfw_InitForOpenGL(_window, true);
     ImGui_ImplOpenGL3_Init("#version 460 core");
 
-    // Also load in that sweet Chinese font
-    // io.Fonts->AddFontFromMemoryCompressedTTF(phoenixTTFCompressedData(), phoenixTTFCompressedSize(), 20, nullptr, io.Fonts->GetGlyphRangesChineseFull());
+    const FontData *fontData = getEmbeddedFontData();
+    io.Fonts->AddFontFromMemoryCompressedTTF(fontData->fontData, fontData->fontSize, 18);
 
     _imguiInitialized = true;
     return true;
+}
+
+bool Window::isImGuiInitialized() const
+{
+    return _imguiInitialized;
 }

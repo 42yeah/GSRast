@@ -693,6 +693,8 @@ namespace gscuda
                                     nContrib, background, outColor);
     }
 
+    bool sorted = false;
+
     void forward(std::function<char *(size_t)> geometryBuffer,
                  std::function<char *(size_t)> binningBuffer,
                  std::function<char *(size_t)> imageBuffer,

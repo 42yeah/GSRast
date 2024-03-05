@@ -16,7 +16,7 @@ FBTestWindow::FBTestWindow() : Window("FBTestWindow", DEFAULT_WINDOW_W, DEFAULT_
     configureFirstPersonCamera();
 
     ColorfulShader::Ptr colorfulShader = std::make_shared<ColorfulShader>();
-    SamplerShader::Ptr samplerShader = std::make_shared<SamplerShader>(_camera);
+    SamplerShader::Ptr samplerShader = std::make_shared<SamplerShader>();
 
     BufferGeo::Ptr triangle = std::make_shared<BufferGeo>();
     triangle->configure(tri, 3, sizeof(tri), colorfulShader);

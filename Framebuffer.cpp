@@ -110,3 +110,14 @@ GLuint Framebuffer::getTexture() const
 {
     return _texture;
 }
+
+int Framebuffer::getWidth() const
+{
+    return _width;
+}
+
+int Framebuffer::getHeight() const
+{
+    return _height;
+}
+

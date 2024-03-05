@@ -8,7 +8,9 @@ add_executable(gsrast main.cpp
     CudaBuffer.cpp
     CopyShader.cpp
     DebugCamera.cpp
-    SplatData.cpp)
+    SplatData.cpp
+    Inspector.cpp
+    RenderSelector.cpp)
 
 find_package(CUDAToolkit)
 
@@ -19,6 +21,9 @@ target_link_libraries(gsrast PUBLIC
     CudaRasterizer
     CUDA::cudart
     gscuda
-    imgui)
+    imgui
+    implot
+    lmdb
+    stb)
 
 add_subdirectory(shaders)

@@ -1,9 +1,6 @@
 #include "GSPointCloud.hpp"
 #include "BufferGeo.hpp"
 #include "apps/gsrast/SplatData.hpp"
-#include <fstream>
-#include <iostream>
-#include <sstream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -35,7 +32,7 @@ bool GSPointCloud::configureFromSplatData(const SplatData::Ptr &splatData, const
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(SHs<3>), (void *) (posSize));
 
     // Flip XY, for some reason
-    _model = glm::scale(_model, glm::vec3(-1.0f, -1.0f, 1.0f));
+    // _model = glm::scale(_model, glm::vec3(-1.0f, -1.0f, 1.0f));
 
     return true;
 }

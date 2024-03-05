@@ -20,14 +20,18 @@ set(SOURCES WindowBase.cpp
     BBox.cpp
     Config.cpp
     RenderTarget.cpp
-    Framebuffer.cpp)
+    Framebuffer.cpp
+    Font.cpp
+    Database.cpp
+    SamplerShader.cpp)
 
 add_executable(basic main.cpp ${SOURCES})
 target_link_libraries(basic PUBLIC
     glfw
     glm::glm
     glad
-    imgui)
+    imgui
+    lmdb)
 
 add_library(base ${SOURCES})
 target_include_directories(base PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -35,6 +39,7 @@ target_link_libraries(base PUBLIC
     glfw
     glm::glm
     glad
-    imgui)
+    imgui
+    lmdb)
 
 add_subdirectory(apps)

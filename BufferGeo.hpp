@@ -16,6 +16,7 @@ public:
     virtual void configure(float *data, int numVerts, int dataSize, ShaderBase::Ptr shader);
 
     virtual void draw() override;
+    virtual void setShader(const ShaderBase::Ptr &shader);
 
 protected:
     ShaderBase::Ptr _shader;

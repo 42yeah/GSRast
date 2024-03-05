@@ -32,9 +32,13 @@ public:
     virtual int getHeight() const override;
 
     /**
-     * Window is capable of handling a firstPersonCamera itself.
+     * I am capable of handling a firstPersonCamera itself.
+     * Note that I don't really use the firstPersonCamera, per se,
+     * but I can update its parameters (based on cursor movements, etc),
+     * so that others can use it.
      */
     void configureFirstPersonCamera();
+    bool isImGuiInitialized() const;
 
 protected:
     Window(const std::string &window_name, int width, int height);

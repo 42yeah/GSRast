@@ -4,3 +4,9 @@
 [submodule "deps/imgui"]
 	path = deps/imgui
 	url = https://github.com/ocornut/imgui
+[submodule "deps/implot"]
+	path = deps/implot
+	url = https://github.com/epezent/implot
+[submodule "deps/lmdb"]
+	path = deps/lmdb
+	url = https://github.com/LMDB/lmdb

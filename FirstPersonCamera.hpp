@@ -30,11 +30,14 @@ public:
     virtual const glm::vec3 &getRight() const;
     virtual const glm::vec3 &getPosition() const override;
     virtual void setPosition(const glm::vec3 &pos);
+    virtual glm::vec2 getNearFar() const;
     void lookAt(const glm::vec3 &point);
     void setNearFar(float near, float far);
     float getFOV() const;
+    float getSensitivity() const;
     void setFOV(float fov);
     void setInvertUp(bool invert);
+    bool getInvertUp() const;
 
 protected:
     glm::vec3 _position, _front, _right;

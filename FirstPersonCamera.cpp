@@ -94,6 +94,11 @@ void FirstPersonCamera::setPosition(const glm::vec3 &pos)
     _position = pos;
 }
 
+glm::vec2 FirstPersonCamera::getNearFar() const
+{
+    return glm::vec2(_near, _far);
+}
+
 void FirstPersonCamera::lookAt(const glm::vec3 &point)
 {
     glm::vec3 dir = glm::normalize(point - _position);
@@ -119,6 +124,11 @@ float FirstPersonCamera::getFOV() const
     return _fov;
 }
 
+float FirstPersonCamera::getSensitivity() const
+{
+    return _sensitivity;
+}
+
 void FirstPersonCamera::setFOV(float fov)
 {
     _fov = fov;
@@ -127,4 +137,9 @@ void FirstPersonCamera::setFOV(float fov)
 void FirstPersonCamera::setInvertUp(bool invert)
 {
     _invertUp = invert;
+}
+
+bool FirstPersonCamera::getInvertUp() const
+{
+    return _invertUp;
 }

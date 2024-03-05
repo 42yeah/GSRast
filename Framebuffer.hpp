@@ -27,6 +27,8 @@ public:
 
     virtual void draw() override;
 
+    int getWidth() const;
+    int getHeight() const;
     GLuint getTexture() const;
 
     static float rectData[18];

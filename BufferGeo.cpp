@@ -1,5 +1,6 @@
 #include "BufferGeo.hpp"
 #include "DrawBase.hpp"
+#include "ShaderBase.hpp"
 #include <iostream>
 
 BufferGeo::BufferGeo() : DrawBase("BufferGeo"), _shader(nullptr), _vao(GL_NONE), _vbo(GL_NONE), _numVerts(0)
@@ -40,3 +41,30 @@ void BufferGeo::draw()
     glBindVertexArray(_vao);
     glDrawArrays(GL_TRIANGLES, 0, _numVerts);
 }
+
+void BufferGeo::setShader(const ShaderBase::Ptr &shader)
+{
+    if (shader == nullptr) { return; }
+    this->_shader = shader;
+}
+
+// BufferGeo::Ptr quadPtr = nullptr;
+// float quadData[] = {
+//     -1.0f, -1.0f, 0.0f,
+//     1.0f, -1.0f, 0.0f,
+//     1.0f, 1.0f, 0.0f,
+//     1.0f, 1.0f, 0.0f,
+//     -1.0f, 1.0f, 0.0f,
+//     -1.0f, -1.0f, 0.0f
+// };
+//
+// BufferGeo::Ptr BufferGeo::quad(const ShaderBase::Ptr &shader)
+// {
+//     if (quadPtr == nullptr)
+//     {
+//         quadPtr = std::make_shared<BufferGeo>();
+//         quadPtr->configure(quadData, 6, sizeof(quadData), nullptr);
+//     }
+//     quadPtr->setShader(shader);
+//     return quadPtr;
+// }
