@@ -46,6 +46,7 @@ public:
     void gaussianMode();
 
     const Framebuffer::Ptr &getFramebuffer() const;
+    const RenderSelector::Ptr &getRenderSelector() const;
 
     virtual void drawFrame() override;
 

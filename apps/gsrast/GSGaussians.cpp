@@ -8,7 +8,6 @@
 #include <cuda_runtime_api.h>
 #include <driver_types.h>
 #include <glm/matrix.hpp>
-#include <rasterizer.h>
 #include <memory>
 #include <vector>
 #include <glm/gtc/type_ptr.hpp>
@@ -19,6 +18,7 @@
 #ifdef USE_GSCUDA 
 #define FORWARD gscuda::forward
 #else 
+#include <rasterizer.h>
 #define FORWARD CudaRasterizer::Rasterizer::forward
 #endif 
 
@@ -211,3 +211,9 @@ void GSGaussians::draw()
     BufferGeo::draw();
 }
 
+gscuda::gs::GeometryState GSGaussians::mapGeometryState() const
+{
+    char *chunk = (char *) _geomPtr;
+    gscuda::gs::GeometryState ret = gscuda::gs::GeometryState::fromChunk(chunk, _numGaussians);
+    return ret;
+}

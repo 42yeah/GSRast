@@ -156,3 +156,8 @@ const Framebuffer::Ptr &GSRastWindow::getFramebuffer() const
 {
     return _framebuffer;
 }
+
+const RenderSelector::Ptr &GSRastWindow::getRenderSelector() const
+{
+    return _renderSelector;
+}

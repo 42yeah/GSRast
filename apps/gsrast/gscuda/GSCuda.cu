@@ -632,7 +632,6 @@ namespace gscuda
                 // TODO: I have no idea what this equation means. SIBR explanation:
                 // Resample using conic matrix (cf. "Surface Splatting" by Zwicker et al., 2001)
                 float power = -0.5f * (conicOpacity.x * delta.x * delta.x + conicOpacity.z * delta.y * delta.y) - conicOpacity.y * delta.x * delta.y;
-
                 if (power > 0.0f)
                 {
                     continue; // ?????
@@ -692,8 +691,6 @@ namespace gscuda
                                     means2D, colors, conicOpacities, finalT,
                                     nContrib, background, outColor);
     }
-
-    bool sorted = false;
 
     void forward(std::function<char *(size_t)> geometryBuffer,
                  std::function<char *(size_t)> binningBuffer,

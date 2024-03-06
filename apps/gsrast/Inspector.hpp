@@ -19,6 +19,22 @@ struct FrameData
 };
 
 /**
+ * I am one single GeometryState (representing one Gaussian.)
+ */
+struct DownloadedGeometryState
+{
+    uint32_t tilesTouched;
+    float depth; // Projected depths
+    bool clamped;
+    int internalRadius;
+    glm::vec2 means2D;
+    float cov3D[6];
+    glm::vec4 conicOpacity;
+    glm::vec3 rgb;
+    uint32_t pointOffset;
+};
+
+/**
  * I am a simple struct recording camera poses.
  * I won't record auto-update values, including:
  * front, right, view, and perspective.
@@ -70,6 +86,7 @@ protected:
     void editableFloat(const char *key, float *v, float min, float max);
     void inspectFloat2(const char *key, const float *v);
     void inspectFloat3(const char *key, const float *v);
+    void inspectFloat4(const char *key, const float *v);
     void inspectBoolean(const char *key, bool v);
     void editableBoolean(const char *key, bool *v);
     void inspectBBox(const char *key, const BBox &bbox);
@@ -89,4 +106,6 @@ protected:
     std::map<std::string, CamPose> _camPoses;
 
     char _screenshotPath[512];
+    int _selectedGeom;
+    DownloadedGeometryState _downloaded;
 };

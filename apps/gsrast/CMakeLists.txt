@@ -18,7 +18,7 @@ add_subdirectory(gscuda)
 
 target_link_libraries(gsrast PUBLIC
     base
-    CudaRasterizer
+    # CudaRasterizer
     CUDA::cudart
     gscuda
     imgui

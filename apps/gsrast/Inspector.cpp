@@ -4,14 +4,17 @@
 #include "FirstPersonCamera.hpp"
 #include "Framebuffer.hpp"
 #include "SplatData.hpp"
+#include "apps/gsrast/GSGaussians.hpp"
 #include "imgui.h"
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 #include <cstring>
+#include <glm/common.hpp>
 #include <implot.h>
 #include <memory>
 #include <ctime>
 #include <string.h>
+#include <cuda_runtime.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
 
@@ -39,6 +42,8 @@ Inspector::Inspector(GSRastWindow *rastWindow) : DrawBase("Inspector")
     memset(_screenshotPath, 0, sizeof(_screenshotPath));
     _screenshotPath[0] = '.';
     Database::get()->get("cam_pose", "__screenshotpath", _screenshotPath, sizeof(_screenshotPath));
+
+    _selectedGeom = 0;
 }
 
 Inspector::~Inspector()
@@ -156,6 +161,52 @@ void Inspector::drawOverlay()
             {
                 _frameData.framerates.clear();
                 _frameData.timestamps.clear();
+            }
+        }
+
+        if (_rastWindow->getVisMode() == VisMode::Gaussians && ImGui::CollapsingHeader("CUDA"))
+        {
+            ImGui::Text("Geometry buffer viewer");
+            int ng = _rastWindow->getSplatData()->getNumGaussians();
+            if (ng > 0)
+            {
+                GSGaussians::Ptr gaussian = _rastWindow->getRenderSelector()->getPtr<GSGaussians>();
+                gscuda::gs::GeometryState geomState = gaussian->mapGeometryState();
+                bool edited = ImGui::SliderInt("Select Gaussian", &_selectedGeom, 0, ng - 1);
+                edited |= ImGui::InputInt("Input Gaussian", &_selectedGeom);
+                if (true || edited)
+                {
+                    _selectedGeom = glm::clamp(_selectedGeom, 0, ng - 1);
+                    cudaMemcpy(&_downloaded.tilesTouched, &geomState.tilesTouched[_selectedGeom], sizeof(uint32_t), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&_downloaded.depth, &geomState.depths[_selectedGeom], sizeof(float), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&_downloaded.clamped, &geomState.clamped[_selectedGeom], sizeof(bool), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&_downloaded.internalRadius, &geomState.internalRadii[_selectedGeom], sizeof(int), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&_downloaded.means2D, &geomState.means2D[_selectedGeom], sizeof(glm::vec2), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&_downloaded.cov3D, &geomState.cov3D[_selectedGeom * 6], sizeof(float) * 6, cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&_downloaded.conicOpacity, &geomState.conicOpacity[_selectedGeom], sizeof(glm::vec4), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&_downloaded.rgb, &geomState.rgb[_selectedGeom], sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+                    cudaMemcpy(&_downloaded.pointOffset, &geomState.pointOffsets[_selectedGeom], sizeof(uint32_t), cudaMemcpyDeviceToHost);
+                }
+                glm::vec3 pos = _rastWindow->getSplatData()->getPositions()[_selectedGeom];
+                if (ImGui::Button("Goto"))
+                {
+                    FirstPersonCamera::Ptr fpCam = std::dynamic_pointer_cast<FirstPersonCamera>(_rastWindow->getCamera());
+                    fpCam->setPosition(pos - fpCam->getFront() * 1.0f);
+                }
+                if (startTable())
+                {
+                    inspectFloat3("position", &pos.x);
+                    inspectInt("tiles touched", (int) _downloaded.tilesTouched);
+                    inspectFloat("depth", _downloaded.depth);
+                    inspectBoolean("clamped", _downloaded.clamped);
+                    inspectInt("internal radius", (int) _downloaded.internalRadius);
+                    inspectFloat2("means2D", &_downloaded.means2D[0]);
+                    inspectMat(2, 3, "cov3D", _downloaded.cov3D);
+                    inspectFloat4("conic opacity", &_downloaded.conicOpacity.x);
+                    inspectFloat3("RGB", &_downloaded.rgb.x);
+                    inspectInt("point offset", (int) _downloaded.pointOffset);
+                    endTable();
+                }
             }
         }
 
@@ -401,6 +452,12 @@ void Inspector::inspectFloat3(const char *key, const float *v)
     TNC ImGui::Text("%.2f, %.2f, %.2f", v[0], v[1], v[2]);
 }
 
+void Inspector::inspectFloat4(const char *key, const float *v)
+{
+    TNR TNC ImGui::Text("%s", key);
+    TNC ImGui::Text("%.2f, %.2f, %.2f, %.2f", v[0], v[1], v[2], v[3]);
+}
+
 void Inspector::inspectBoolean(const char *key, bool v)
 {
     TNR TNC ImGui::Text("%s", key);
@@ -470,7 +527,7 @@ void Inspector::inspectMat(int rows, int cols, const char *key, const float *v)
             {
                 TNC
                 int index = i * cols + j;
-                ImGui::Text("%.2f", v[index]);
+                ImGui::Text("%.6f", v[index]);
             }
         }
         ImGui::EndTable();

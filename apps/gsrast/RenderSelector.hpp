@@ -21,6 +21,12 @@ public:
 
     void reset(DrawBase::Ptr drawPtr);
 
+    template<typename T>
+    const std::shared_ptr<T> getPtr() const
+    {
+        return std::dynamic_pointer_cast<T>(_drawPtr);
+    }
+
 protected:
     DrawBase::Ptr _drawPtr;
 };
