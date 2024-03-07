@@ -537,6 +537,27 @@ namespace gscuda
         }
     }
 
+    __device__ float approxNorm(float x)
+    {
+        if (x < -3.14f || x > 3.14f)
+        {
+            return 0.00722f;
+        }
+        float a = (2.0f + cosf(x)) * 0.33f;
+        return a * a * a;
+    }
+
+    __device__ float approxNorm2(float x)
+    {
+        if (x < 0.0f || x >= 9.8596f)
+        {
+            return 0.00722f;
+        }
+        float sqrted = sqrtf(x);
+        float a = (2.0f + cosf(sqrted)) * 0.33f;
+        return a * a * a;
+    }
+
     /**
      * Actually render stuffs to the screen.
      */
@@ -549,7 +570,8 @@ namespace gscuda
                                float * __restrict__ finalT, // "accumAlpha"
                                uint32_t * __restrict__ nContrib,
                                const glm::vec3 * __restrict__ background,
-                               float * __restrict__ outColor)
+                               float * __restrict__ outColor,
+                               ForwardParams forwardParams)
     {
         namespace cg = cooperative_groups;
         cg::thread_block block = cg::this_thread_block();
@@ -627,26 +649,43 @@ namespace gscuda
                 const glm::vec2 &screenSpace = collectedXYs[j];
                 glm::vec2 delta = screenSpace - glm::vec2(pix);
                 glm::vec4 conicOpacity = collectedConicOpacities[j];
-                // "The alpha decays exponentially from the Gaussian center." I've read that somewhere in the paper. May not be
-                // completely the same though. Well, it was either in paper or in code.
-                // TODO: I have no idea what this equation means. SIBR explanation:
-                // Resample using conic matrix (cf. "Surface Splatting" by Zwicker et al., 2001)
-                float power = -0.5f * (conicOpacity.x * delta.x * delta.x + conicOpacity.z * delta.y * delta.y) - conicOpacity.y * delta.x * delta.y;
-                if (power > 0.0f)
-                {
-                    continue; // ?????
-                }
 
-                // Oh wait, here it is.
-                // Eq. (2) from 3D Gaussian splatting paper.
-                // Obtain alpha by multiplying with Gaussian opacity
-                // and its exponential falloff from mean.
-                // Avoid numerical instabilities (see paper appendix).
-                float alpha = glm::min(0.99f, conicOpacity.w * exp(power));
+                float alpha = 0.0f;
+                if (!forwardParams.cosineApprox)
+                {
+                    // "The alpha decays exponentially from the Gaussian center." I've read that somewhere in the paper. May not be
+                    // completely the same though. Well, it was either in paper or in code.
+                    // TODO: I have no idea what this equation means. SIBR explanation:
+                    // Resample using conic matrix (cf. "Surface Splatting" by Zwicker et al., 2001)
+                    float power = -0.5f * (conicOpacity.x * delta.x * delta.x + conicOpacity.z * delta.y * delta.y) - conicOpacity.y * delta.x * delta.y;
+                    if (power > 0.0f)
+                    {
+                        continue; // ?????
+                    }
+
+                    // Oh wait, here it is.
+                    // Eq. (2) from 3D Gaussian splatting paper.
+                    // Obtain alpha by multiplying with Gaussian opacity
+                    // and its exponential falloff from mean.
+                    // Avoid numerical instabilities (see paper appendix).
+                    alpha = exp(power);
+                }
+                else
+                {
+                    float coeff = conicOpacity.x * delta.x * delta.x + conicOpacity.z * delta.y * delta.y + 2.0f * conicOpacity.y * delta.x * delta.y;
+                    if (coeff < 0.0f)
+                    {
+                        continue;
+                    }
+                    alpha = approxNorm(coeff);
+                }
+                alpha = glm::min(0.99f, conicOpacity.w * alpha);
+
                 if (alpha < 1.0f / 255.0f)
                 {
                     continue;
                 }
+
                 // Test the remaining alpha and see if it makes sense to continue the blend.
                 // TODO: Having questions.
                 float testNewAlpha = accumAlpha * (1.0f - alpha);
@@ -655,6 +694,11 @@ namespace gscuda
                     // No alpha left to fill; I'm out of here
                     done = true;
                     continue;
+                }
+
+                if (forwardParams.debugCosineApprox)
+                {
+                    collectedColors[j] = glm::vec3(delta.x, delta.y, fabs(delta.x * delta.x));
                 }
 
                 // Eq. 3 from the splatting paper.
@@ -685,11 +729,12 @@ namespace gscuda
                 float *finalT, // "accumAlpha"
                 uint32_t *nContrib,
                 const glm::vec3 *background,
-                float *outColor)
+                float *outColor,
+                ForwardParams forwardParams)
     {
         renderCUDA<<<grid, block>>>(ranges, pointList, width, height,
                                     means2D, colors, conicOpacities, finalT,
-                                    nContrib, background, outColor);
+                                    nContrib, background, outColor, forwardParams);
     }
 
     void forward(std::function<char *(size_t)> geometryBuffer,
@@ -715,7 +760,8 @@ namespace gscuda
                  int *radii, // Unused
                  int *rects, // CUDA rects for fast culling
                  float *boxMin, // Unused; bounding box I think
-                 float *boxMax)
+                 float *boxMax,
+                 ForwardParams forwardParams)
     {
         using namespace gs;
         float focalDist = height / (2.0f * tanFOVy);
@@ -807,7 +853,7 @@ namespace gscuda
                geomState.means2D, colorsPtr, geomState.conicOpacity,
                imState.accumAlpha, imState.nContrib,
                (const glm::vec3 *) background,
-               outColor);
+               outColor, forwardParams);
     }
 };
 

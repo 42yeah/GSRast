@@ -78,6 +78,8 @@ GSGaussians::GSGaussians(int width, int height, FirstPersonCamera::Ptr camera) :
     _imgBufferFunc = resizeFunctional(&_imgPtr, _allocatedImg);
 
     _splatData = nullptr;
+    _forwardParams.cosineApprox = false;
+    _forwardParams.debugCosineApprox = false;
 }
 
 GSGaussians::~GSGaussians()
@@ -203,7 +205,8 @@ void GSGaussians::draw()
                 nullptr,
                 _rects->getPtr(),
                 nullptr,
-                nullptr)
+                nullptr,
+                _forwardParams)
     );
 
     // Now directly render-copy the result by treating the interopTex as an SSBO
@@ -216,4 +219,14 @@ gscuda::gs::GeometryState GSGaussians::mapGeometryState() const
     char *chunk = (char *) _geomPtr;
     gscuda::gs::GeometryState ret = gscuda::gs::GeometryState::fromChunk(chunk, _numGaussians);
     return ret;
+}
+
+const gscuda::ForwardParams &GSGaussians::getForwardParams() const
+{
+    return _forwardParams;
+}
+
+void GSGaussians::setForwardParams(const gscuda::ForwardParams &forwardParams)
+{
+    _forwardParams = forwardParams;
 }

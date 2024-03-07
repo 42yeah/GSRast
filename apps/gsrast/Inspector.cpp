@@ -298,7 +298,25 @@ void Inspector::drawOverlay()
             ImGui::EndCombo();
         }
         bool temp = false;
-        ImGui::Checkbox("Multivariate Gaussian approximation", &temp);
+
+        if (_rastWindow->getVisMode() == VisMode::Gaussians)
+        {
+            GSGaussians::Ptr gaussian = _rastWindow->getRenderSelector()->getPtr<GSGaussians>();
+            gscuda::ForwardParams params = gaussian->getForwardParams();
+            bool edited = ImGui::Checkbox("Multivariate Gaussian approximation", &params.cosineApprox);
+            if (params.cosineApprox)
+            {
+                ImGui::SeparatorText("Cosine approximation params");
+                edited |= ImGui::Checkbox("Show debug data", &params.debugCosineApprox);
+
+                ImGui::Separator();
+            }
+            if (edited)
+            {
+                gaussian->setForwardParams(params);
+            }
+        }
+
         ImGui::Checkbox("SS-Ellipsoid projection approximation", &temp);
         ImGui::Checkbox("Sort caching", &temp);
         ImGui::SeparatorText("Saved poses");

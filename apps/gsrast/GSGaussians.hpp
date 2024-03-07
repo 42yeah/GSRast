@@ -8,6 +8,7 @@
 #include "CudaBuffer.hpp"
 #include "SplatData.hpp"
 #include <AuxBuffer.cuh>
+#include <GSCuda.cuh>
 
 /**
  * This part of application invokes the graphdeco-inria/diff-gaussian-rasterization to render Gaussian Splats.
@@ -29,6 +30,9 @@ public:
     virtual void draw() override;
 
     gscuda::gs::GeometryState mapGeometryState() const;
+    const gscuda::ForwardParams &getForwardParams() const;
+
+    void setForwardParams(const gscuda::ForwardParams &forwardParams);
 
 protected:
     int _width, _height, _numGaussians;
@@ -47,4 +51,6 @@ protected:
     void *_geomPtr, *_binningPtr, *_imgPtr;
     size_t _allocatedGeom, _allocatedBinning, _allocatedImg;
     SplatData::Ptr _splatData;
+
+    gscuda::ForwardParams _forwardParams;
 };

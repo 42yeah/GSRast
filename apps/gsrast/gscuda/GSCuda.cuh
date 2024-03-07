@@ -12,6 +12,12 @@
  */
 namespace gscuda 
 {
+    struct ForwardParams
+    {
+        bool cosineApprox;
+        bool debugCosineApprox;
+    };
+
     /**
      * Drop-in replacement to rasterize points only. This is not different at all
      * than glDrawArrays(0, P, GL_POINTS). 
@@ -91,7 +97,8 @@ namespace gscuda
                 float *finalT, // "accumAlpha"
                 uint32_t *nContrib,
                 const glm::vec3 *background,
-                float *outColor);
+                float *outColor,
+                ForwardParams forwardParams);
 
     /**
      * I am the forward function responsible for
@@ -123,5 +130,6 @@ namespace gscuda
                  int *radii, // Unused
                  int *rects, // CUDA rects for fast culling
                  float *boxMin, // Unused; bounding box I think
-                 float *boxMax);
+                 float *boxMax,
+                 ForwardParams forwardParams);
 };
