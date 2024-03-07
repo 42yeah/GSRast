@@ -48,12 +48,11 @@ void PLYExplorer::listDir(const std::filesystem::path &path, int level, int maxL
     {
         return;
     }
-    for (const auto &entry : std::filesystem::directory_iterator(path))
+    for (const auto &entry : std::filesystem::directory_iterator(path, std::filesystem::directory_options::skip_permission_denied))
     {
         const std::filesystem::path &path = entry.path();
         if (std::filesystem::is_directory(path))
         {
-            listDir(path, level + 1, maxLevel);
             if (level == 0)
             {
                 PLYData pd;
@@ -62,6 +61,7 @@ void PLYExplorer::listDir(const std::filesystem::path &path, int level, int maxL
                 pd.size = 0;
                 _plys.push_back(pd);
             }
+            listDir(path, level + 1, maxLevel);
         }
         else if (path.has_extension())
         {
@@ -70,6 +70,10 @@ void PLYExplorer::listDir(const std::filesystem::path &path, int level, int maxL
             for (int i = 1; i < str.size(); i++)
             {
                 lower[i - 1] = tolower(str[i]);
+            }
+            if (wcsncmp(path.filename().c_str(), L"input.ply", sizeof(L"input.ply")) == 0)
+            {
+                continue; // Skip input PLYs
             }
             if (strncmp(lower, "ply", sizeof(lower)) == 0)
             {

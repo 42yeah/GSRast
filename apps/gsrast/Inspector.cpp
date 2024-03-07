@@ -6,7 +6,8 @@
 #include "SplatData.hpp"
 #include "apps/gsrast/GSGaussians.hpp"
 #include "apps/gsrast/PLYExplorer.hpp"
-#include "imgui.h"
+#include <imgui.h>
+#include <lmdb.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 #include <cstdlib>
@@ -48,6 +49,13 @@ Inspector::Inspector(GSRastWindow *rastWindow) : DrawBase("Inspector")
     _selectedGeom = 0;
 
     _plyExplorer = std::make_shared<PLYExplorer>();
+    _showDirs = true;
+    char basePath[512] = { 0 };
+    if (Database::get()->get("plyexplorer", "__basepath", basePath, sizeof(basePath)) == MDB_SUCCESS)
+    {
+        _plyExplorer->setBasePath(basePath);
+    }
+    Database::get()->get("plyexplorer", "__showdirs", (char *) &_showDirs, sizeof(_showDirs));
     _plyExplorer->listDirRecursive();
 }
 
@@ -343,19 +351,33 @@ void Inspector::drawOverlay()
 
         if (ImGui::CollapsingHeader("Switch scene"))
         {
+            if (ImGui::Checkbox("Show directories", &_showDirs))
+            {
+                Database::get()->put("plyexplorer", "__showdirs", (char *) &_showDirs, sizeof(_showDirs));
+            }
             ImGui::Text("Current path: %ws", _plyExplorer->getBasePath().c_str());
             if (startTable())
             {
                 const PLYData *chosen = nullptr;
                 for (const auto &ply : _plyExplorer->getPLYs())
                 {
+                    if (!_showDirs && ply.isFolder)
+                    {
+                        continue;
+                    }
                     TNR TNC
+                    if (ply.path.has_parent_path())
+                    {
+                        const std::filesystem::path &ppath = ply.path.parent_path();
+                        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "%ws/", ppath.filename().c_str());
+                        ImGui::SameLine();
+                    }
                     ImGui::Text("%ws%s", ply.path.filename().c_str(), ply.isFolder ? "/" : "");
                     TNC
                     if (ply.isFolder)
                     {
                         snprintf(_sprinted, sizeof(_sprinted), "Change directory##%ws", ply.path.c_str());
-                        if (ImGui::Button(_sprinted, ImVec2(-1, 0)))
+                        if (ImGui::Button(_sprinted))
                         {
                             chosen = &ply;
                         }
@@ -363,26 +385,27 @@ void Inspector::drawOverlay()
                     else if (!ply.isFolder)
                     {
                         snprintf(_sprinted, sizeof(_sprinted), "Load##%ws", ply.path.c_str());
-                        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "(%llu)", ply.size);
-                        ImGui::SameLine();
-                        if (ImGui::Button(_sprinted, ImVec2(-1, 0)))
+                        if (ImGui::Button(_sprinted))
                         {
-                            char path[512] = { 0 };
-                            // Fuck windows. Shut up, please.
-                            wcstombs(path, ply.path.c_str(), sizeof(path));
-                            if (_rastWindow->getSplatData()->loadFromPly(path))
+                            if (_rastWindow->getSplatData()->loadFromPly(ply.path.string()))
                             {
                                 _rastWindow->revisualize();
                                 snprintf(message, sizeof(message), "Loaded %ws.", ply.path.c_str());
                                 timeToLive = 3.0f;
                             }
                         }
+                        ImGui::SameLine();
+                        float size = ply.size / 1024.0f / 1024.0f;
+                        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "(%.2fM)", size);
                     }
                 }
                 if (chosen)
                 {
-                    _plyExplorer->setBasePath(chosen->path);
-                    _plyExplorer->listDirRecursive();
+                    if (_plyExplorer->setBasePath(chosen->path))
+                    {
+                        Database::get()->put("plyexplorer", "__basepath", chosen->path.string().c_str(), chosen->path.string().size());
+                        _plyExplorer->listDirRecursive();
+                    }
                 }
                 endTable();
             }

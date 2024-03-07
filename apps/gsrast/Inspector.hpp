@@ -112,4 +112,5 @@ protected:
     DownloadedGeometryState _downloaded;
 
     PLYExplorer::Ptr _plyExplorer;
+    bool _showDirs;
 };
