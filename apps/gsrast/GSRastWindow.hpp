@@ -44,6 +44,7 @@ public:
     void pointCloudMode();
     void ellipsoidsMode();
     void gaussianMode();
+    void revisualize();
 
     const Framebuffer::Ptr &getFramebuffer() const;
     const RenderSelector::Ptr &getRenderSelector() const;

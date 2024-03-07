@@ -5,9 +5,11 @@
 #include "Framebuffer.hpp"
 #include "SplatData.hpp"
 #include "apps/gsrast/GSGaussians.hpp"
+#include "apps/gsrast/PLYExplorer.hpp"
 #include "imgui.h"
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
+#include <cstdlib>
 #include <cstring>
 #include <glm/common.hpp>
 #include <implot.h>
@@ -44,6 +46,9 @@ Inspector::Inspector(GSRastWindow *rastWindow) : DrawBase("Inspector")
     Database::get()->get("cam_pose", "__screenshotpath", _screenshotPath, sizeof(_screenshotPath));
 
     _selectedGeom = 0;
+
+    _plyExplorer = std::make_shared<PLYExplorer>();
+    _plyExplorer->listDirRecursive();
 }
 
 Inspector::~Inspector()
@@ -150,10 +155,26 @@ void Inspector::drawOverlay()
                 ImPlot::PlotLine("Frames per second", _frameData.timestamps.data(), _frameData.framerates.data(), (int) _frameData.framerates.size(), 0, 0, sizeof(float));
                 ImPlot::EndPlot();
             }
+            float avg = 0.0f;
+            int nContrib = 0;
+            for (int i = (int) _frameData.framerates.size() - 1; i >= 0; i--)
+            {
+                if (_frameData.timestamps[i] <= _timeElapsed - 10.0f)
+                {
+                    break;
+                }
+                avg += _frameData.framerates[i];
+                nContrib++;
+            }
+            if (nContrib != 0)
+            {
+                avg = avg / nContrib;
+            }
             if (startTable())
             {
                 inspectFloat("Delta time", (float) dt);
                 inspectInt("FPS", (int) (1.0f / dt));
+                inspectFloat("Average FPS", avg);
                 inspectInt("#Frame data", (int) (_frameData.framerates.size()));
                 endTable();
             }
@@ -319,6 +340,54 @@ void Inspector::drawOverlay()
 
         ImGui::Checkbox("SS-Ellipsoid projection approximation", &temp);
         ImGui::Checkbox("Sort caching", &temp);
+
+        if (ImGui::CollapsingHeader("Switch scene"))
+        {
+            ImGui::Text("Current path: %ws", _plyExplorer->getBasePath().c_str());
+            if (startTable())
+            {
+                const PLYData *chosen = nullptr;
+                for (const auto &ply : _plyExplorer->getPLYs())
+                {
+                    TNR TNC
+                    ImGui::Text("%ws%s", ply.path.filename().c_str(), ply.isFolder ? "/" : "");
+                    TNC
+                    if (ply.isFolder)
+                    {
+                        snprintf(_sprinted, sizeof(_sprinted), "Change directory##%ws", ply.path.c_str());
+                        if (ImGui::Button(_sprinted, ImVec2(-1, 0)))
+                        {
+                            chosen = &ply;
+                        }
+                    }
+                    else if (!ply.isFolder)
+                    {
+                        snprintf(_sprinted, sizeof(_sprinted), "Load##%ws", ply.path.c_str());
+                        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "(%llu)", ply.size);
+                        ImGui::SameLine();
+                        if (ImGui::Button(_sprinted, ImVec2(-1, 0)))
+                        {
+                            char path[512] = { 0 };
+                            // Fuck windows. Shut up, please.
+                            wcstombs(path, ply.path.c_str(), sizeof(path));
+                            if (_rastWindow->getSplatData()->loadFromPly(path))
+                            {
+                                _rastWindow->revisualize();
+                                snprintf(message, sizeof(message), "Loaded %ws.", ply.path.c_str());
+                                timeToLive = 3.0f;
+                            }
+                        }
+                    }
+                }
+                if (chosen)
+                {
+                    _plyExplorer->setBasePath(chosen->path);
+                    _plyExplorer->listDirRecursive();
+                }
+                endTable();
+            }
+        }
+
         ImGui::SeparatorText("Saved poses");
 
         if (ImGui::Button("Save current pose", ImVec2(-1, 0)))

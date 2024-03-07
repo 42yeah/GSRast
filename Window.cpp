@@ -125,6 +125,14 @@ void Window::pollEvents()
         {
             _firstPersonCamera->applyMotion(_firstPersonCamera->getRight() * _dt);
         }
+        if (glfwGetKey(_window, GLFW_KEY_Q))
+        {
+            _firstPersonCamera->applyDelta(0.0f, 0.0f, -1.0f * _dt);
+        }
+        if (glfwGetKey(_window, GLFW_KEY_E))
+        {
+            _firstPersonCamera->applyDelta(0.0f, 0.0f, 1.0f * _dt);
+        }
     }
 
     if (_camera)
@@ -202,7 +210,7 @@ void Window::cursorPosCallback(double x, double y)
     {
         return;
     }
-    _firstPersonCamera->applyDelta(_cursorDelta.x, _cursorDelta.y);
+    _firstPersonCamera->applyDelta(_cursorDelta.x, _cursorDelta.y, 0.0f);
 }
 
 void Window::configureFirstPersonCamera()

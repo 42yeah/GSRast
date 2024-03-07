@@ -3,6 +3,7 @@
 #include "DrawBase.hpp"
 #include "FirstPersonCamera.hpp"
 #include "GSRastWindow.hpp"
+#include "PLYExplorer.hpp"
 #include <map>
 
 #define TNR ImGui::TableNextRow();
@@ -51,7 +52,8 @@ struct CamPose
  * I am responsible for:
  * 1. the UI overlay so that I can inspect and change up things.
  * 2. interfacing with the window and its contents.
- * 3. recording & restoring camera poses.
+ * 3. change up the visualization data, as needed.
+ * 4. recording & restoring scene-specific camera poses.
  * I require a GSRastWindow and its respective data.
  */
 class Inspector : public DrawBase
@@ -108,4 +110,6 @@ protected:
     char _screenshotPath[512];
     int _selectedGeom;
     DownloadedGeometryState _downloaded;
+
+    PLYExplorer::Ptr _plyExplorer;
 };

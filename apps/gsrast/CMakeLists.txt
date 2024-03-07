@@ -10,7 +10,8 @@ add_executable(gsrast main.cpp
     DebugCamera.cpp
     SplatData.cpp
     Inspector.cpp
-    RenderSelector.cpp)
+    RenderSelector.cpp
+    PLYExplorer.cpp)
 
 find_package(CUDAToolkit)
 

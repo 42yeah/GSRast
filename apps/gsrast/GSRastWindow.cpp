@@ -141,6 +141,24 @@ void GSRastWindow::gaussianMode()
     }
 }
 
+void GSRastWindow::revisualize()
+{
+    switch (_visMode)
+    {
+        case VisMode::PointCloud:
+            pointCloudMode();
+            break;
+
+        case VisMode::Ellipsoids:
+            ellipsoidsMode();
+            break;
+
+        case VisMode::Gaussians:
+            gaussianMode();
+            break;
+    }
+}
+
 void GSRastWindow::drawFrame()
 {
     _framebuffer->drawFrame();

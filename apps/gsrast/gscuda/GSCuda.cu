@@ -537,24 +537,25 @@ namespace gscuda
         }
     }
 
-    __device__ float approxNorm(float x)
+
+    inline __device__ float fastcos(float x)
     {
-        if (x < -3.14f || x > 3.14f)
-        {
-            return 0.00722f;
-        }
-        float a = (2.0f + cosf(x)) * 0.33f;
-        return a * a * a;
+        constexpr float tp = 1.0f /(2.0f * 3.14f);
+        x *= tp;
+        x -= 0.25f + std::floor(x + 0.25f);
+        x *= 16.0f * (std::abs(x) - 0.5f);
+        return x;
     }
 
     __device__ float approxNorm2(float x)
     {
-        if (x >= 2.29f)
+        if (x >= 2.93f)
         {
-            return glm::mix(0.23f, 0.0f, x - 2.29f);
+            return 0.0f;
         }
-        float sqrted = sqrtf(x);
-        float a = (2.0f + cosf(sqrted)) * 0.33f;
+        // float sqrted = sqrtf(x);
+        float sqrted = (1.0f + x) / 2.0f;
+        float a = (2.0f + fastcos(sqrted)) * 0.33f;
         return a * a * a;
     }
 

@@ -27,7 +27,7 @@ const glm::mat4 &FirstPersonCamera::getPerspective() const
 
 void FirstPersonCamera::update(const WindowBase &window)
 {
-    glm::vec3 arbitraryUp = !_invertUp ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(0.0f, -1.0f, 0.0f);
+    glm::vec3 arbitraryUp = !_invertUp ? glm::vec3(sinf(0.0f), cosf(0.0f), sinf(0.0f)) : glm::vec3(-sinf(0.0f), -cosf(0.0f), -sinf(0.0f));
     _front = glm::vec3(cosf(_ypr.y) * sinf(_ypr.x),
                        sinf(_ypr.y),
                        cosf(_ypr.y) * cosf(_ypr.x));
@@ -42,11 +42,12 @@ void FirstPersonCamera::applyMotion(glm::vec3 dir)
     _position += dir * _speed;
 }
 
-void FirstPersonCamera::applyDelta(float dYaw, float dPitch)
+void FirstPersonCamera::applyDelta(float dYaw, float dPitch, float dRoll)
 {
     float modifier = _invertUp ? -1.0f : 1.0f;
     _ypr.x -= modifier * dYaw * _sensitivity;
     _ypr.y = glm::min(glm::max(_ypr.y - modifier * dPitch * _sensitivity, -0.5f * PI_F + EPSILON), 0.5f * PI_F - EPSILON);
+    _ypr.z += dRoll;
 }
 
 void FirstPersonCamera::setSensitivity(float sensitivity)

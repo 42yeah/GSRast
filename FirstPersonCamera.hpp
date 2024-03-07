@@ -20,7 +20,7 @@ public:
     virtual void update(const WindowBase &window) override;
 
     virtual void applyMotion(glm::vec3 dir);
-    virtual void applyDelta(float dYaw, float dPitch);
+    virtual void applyDelta(float dYaw, float dPitch, float dRoll);
     virtual void setSensitivity(float sensitivity);
     virtual const glm::vec3 &getYPR() const;
     virtual void setYPR(const glm::vec3 &ypr);
