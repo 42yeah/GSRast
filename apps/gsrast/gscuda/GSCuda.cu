@@ -549,9 +549,9 @@ namespace gscuda
 
     __device__ float approxNorm2(float x)
     {
-        if (x < 0.0f || x >= 9.8596f)
+        if (x >= 2.29f)
         {
-            return 0.00722f;
+            return glm::mix(0.23f, 0.0f, x - 2.29f);
         }
         float sqrted = sqrtf(x);
         float a = (2.0f + cosf(sqrted)) * 0.33f;
@@ -677,7 +677,7 @@ namespace gscuda
                     {
                         continue;
                     }
-                    alpha = approxNorm(coeff);
+                    alpha = approxNorm2(coeff);
                 }
                 alpha = glm::min(0.99f, conicOpacity.w * alpha);
 
