@@ -238,9 +238,8 @@ void Inspector::drawOverlay()
                 }
             }
         }
-
-        ImGui::End();
     }
+    ImGui::End();
 
     ImGui::SetNextWindowSize(ImVec2(505.0f, 252.0f), ImGuiCond_Appearing);
     ImGui::SetNextWindowPos(ImVec2(13.0f, 505.0f), ImGuiCond_Appearing);
@@ -466,8 +465,8 @@ void Inspector::drawOverlay()
             }
             endTable();
         }
-        ImGui::End();
     }
+    ImGui::End();
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_1))
     {
         _demoWindowShown = !_demoWindowShown;

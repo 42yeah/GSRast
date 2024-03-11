@@ -69,96 +69,9 @@ void main() {
     } else if (cubeMode && sp == vec3(0.0)) {
         float boxCol = max(dot(normalize(vec3(0.31, 0.87, 0.1)), boxNormal), 0.0) * 0.4 + 0.6;
         color = vec4(boxCol * vec3(0.424, 0.557, 0.749), 1.0);
-        // return;
+        return;
     }
-
-    mat4 scl = mat4(sphereScale.x, 0.0, 0.0, 0.0,
-                    0.0, sphereScale.y, 0.0, 0.0,
-                    0.0, 0.0, sphereScale.z, 0.0,
-                    0.0, 0.0, 0.0, 1.0);
-    mat4 onlyFour = mat4(1.0, 0.0, 0.0, 0.0,
-                         0.0, 1.0, 0.0, 0.0,
-                         0.0, 0.0, 1.0, 0.0,
-                         camPos.x, camPos.y, camPos.z, 1.0);
-    // Axis-aligned projection
-    mat4 aaProj = perspective * onlyFour * scl * mat4(1.0, 0.0, 0.0, 1.0,
-                                           0.0, 1.0, 0.0, 1.0,
-                                           0.0, 0.0, 1.0, 1.0,
-                                           0.0, 0.0, 0.0, 1.0);
-    vec4 pa = aaProj[0];
-    vec4 pb = aaProj[1];
-    vec4 pc = aaProj[2];
-    pa /= pa.w;
-    pb /= pb.w;
-    pc /= pc.w;
-    vec2 paa = vec2(pa);
-    vec2 pbb = vec2(pb);
-    vec2 pcc = vec2(pc);
-    float aLength = length(paa);
-    float bLength = length(pbb);
-    float cLength = length(pcc);
-
-    mat4 proj = perspective * view * model * mat4(1.0, 0.0, 0.0, 1.0,
-                                                  0.0, 1.0, 0.0, 1.0,
-                                                  0.0, 0.0, 1.0, 1.0,
-                                                  0.0, 0.0, 0.0, 1.0);
-    vec4 a = proj[0];
-    vec4 b = proj[1];
-    vec4 c = proj[2];
-    a /= a.w;
-    b /= b.w;
-    c /= c.w;
-
-    vec4 projPoint = perspective * view * model * vec4(sphereCenter, 1.0);
-    projPoint /= projPoint.w;
-
-    vec2 uv = vec2(gl_FragCoord) / vec2(800, 800);
-    uv = uv * 2.0 - 1.0;
-    // color = vec4(uv, 0.0, 1.0);
-
-    vec2 aa = vec2(a);
-    vec2 bb = vec2(b);
-    vec2 cc = vec2(c);
-    if (length(aa) < length(cc) && abs(dot(normalize(aa), normalize(cc))) - 1.0 >= 0.01) {
-        vec2 swp = aa;
-        aa = cc;
-        cc = swp;
-
-        float swapL = aLength;
-        aLength = cLength;
-        cLength = swapL;
-
-    }
-    if (length(bb) < length(cc) && abs(dot(normalize(bb), normalize(cc))) - 1.0 >= 0.01) {
-        bb = cc;
-        bLength = cLength;
-    }
-    aa = normalize(aa) * aLength;
-    bb = normalize(bb) * bLength;
-    float prx = dot(normalize(aa), uv) / length(aa);
-    float pry = dot(normalize(bb), uv) / length(bb);
-
-    if (prx * prx + pry * pry > 1.0) {
-        color *= vec4(0.5, 0.5, 0.5, 1.0);
-    } else {
-        color *= vec4(0.9, 0.9, 0.9, 1.0);
-    }
-    if (abs(dot(normalize(aa), normalize(uv))) > 0.99) {
-        if (abs(dot(normalize(aa), uv)) < length(aa)) {
-            color *= vec4(1.0, 0.0, 0.0, 1.0);
-        }
-    }
-    if (abs(dot(normalize(bb), normalize(uv))) > 0.99) {
-        if (abs(dot(normalize(bb), uv)) < length(bb)) {
-            color *= vec4(0.0, 1.0, 0.0, 1.0);
-        }
-    }
-    if (distance(vec2(projPoint), uv) < 0.1) {
-        color = vec4(1.0, 0.0, 0.0, 1.0);
-    }
-    return;
-
 
     float col = clamp(0.6 + 0.4 * max(dot(normalize(vec3(0.31, 0.87, 0.1)), nor), 0.0), 0.0, 1.0);
-    color = vec4(col * vec3(0.9, 0.9, 0.9), 1.0);
+    color = vec4(col * vec3(0.95, 0.9, 0.9), 1.0);
 }
