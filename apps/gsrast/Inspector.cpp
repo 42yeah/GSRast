@@ -332,6 +332,7 @@ void Inspector::drawOverlay()
             GSGaussians::Ptr gaussian = _rastWindow->getRenderSelector()->getPtr<GSGaussians>();
             gscuda::ForwardParams params = gaussian->getForwardParams();
             bool edited = ImGui::Checkbox("Multivariate Gaussian approximation", &params.cosineApprox);
+
             if (params.cosineApprox)
             {
                 ImGui::SeparatorText("Cosine approximation params");
@@ -339,14 +340,15 @@ void Inspector::drawOverlay()
 
                 ImGui::Separator();
             }
+
+            edited |= ImGui::Checkbox("Ellipsoid projection approximation", &params.ellipseApprox);
+            edited |= ImGui::Checkbox("Adaptive OIT mode", &params.adaptiveOIT);
+
             if (edited)
             {
                 gaussian->setForwardParams(params);
             }
         }
-
-        ImGui::Checkbox("SS-Ellipsoid projection approximation", &temp);
-        ImGui::Checkbox("Sort caching", &temp);
 
         if (ImGui::CollapsingHeader("Switch scene"))
         {

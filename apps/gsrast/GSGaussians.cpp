@@ -80,6 +80,8 @@ GSGaussians::GSGaussians(int width, int height, FirstPersonCamera::Ptr camera) :
     _splatData = nullptr;
     _forwardParams.cosineApprox = false;
     _forwardParams.debugCosineApprox = false;
+    _forwardParams.ellipseApprox = false;
+    _forwardParams.adaptiveOIT = false;
 }
 
 GSGaussians::~GSGaussians()

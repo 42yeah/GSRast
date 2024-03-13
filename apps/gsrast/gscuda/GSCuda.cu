@@ -3,15 +3,14 @@
 #include <driver_types.h>
 #include <glm/fwd.hpp>
 #include <glm/geometric.hpp>
-#include <iostream>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <vector_types.h>
 #include <cooperative_groups.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <cub/cub.cuh>
-#include "CudaHelpers.cuh"
 #include "AuxBuffer.cuh"
 
 #define NUM_THREADS 1024
@@ -259,33 +258,34 @@ namespace gscuda
     }
 
     __global__ void preprocessCUDA(int numGaussians, int shDims, int M,
-                              const glm::vec4 *means3D, // called "origPoints" in DGR
-                              const glm::vec4 *scales,
-                              const float scaleModifier,
-                              const glm::vec4 *rotations,
-                              const float *opacities,
-                              const float *shs,
-                              bool *clamped,
-                              const float *cov3DPrecomp,
-                              const float *colorsPrecomp,
-                              const float *viewMatrix,
-                              const float *projMatrix,
-                              const glm::vec3 *camPos,
-                              int width, int height,
-                              float tanFOVx, float tanFOVy,
-                              float focalDist,
-                              int *radii,
-                              glm::vec2 *means2D, // called "points_xy_image" in DGR
-                              float *depths,
-                              float *cov3Ds,
-                              glm::vec3 *rgb,
-                              glm::vec4 *conicOpacity,
-                              const dim3 grid,
-                              uint32_t *tilesTouched,
-                              bool prefiltered,
-                              glm::ivec2 *rects,
-                              glm::vec3 boxMin,
-                              glm::vec3 boxMax)
+                                   const glm::vec4 *means3D, // called "origPoints" in DGR
+                                   const glm::vec4 *scales, // "DGR" refers to diff-gaussian-rasterization
+                                   const float scaleModifier,
+                                   const glm::vec4 *rotations,
+                                   const float *opacities,
+                                   const float *shs,
+                                   bool *clamped,
+                                   const float *cov3DPrecomp,
+                                   const float *colorsPrecomp,
+                                   const float *viewMatrix,
+                                   const float *projMatrix,
+                                   const glm::vec3 *camPos,
+                                   int width, int height,
+                                   float tanFOVx, float tanFOVy,
+                                   float focalDist,
+                                   int *radii,
+                                   glm::vec2 *means2D, // called "points_xy_image" in DGR
+                                   float *depths,
+                                   float *cov3Ds,
+                                   glm::vec3 *rgb,
+                                   glm::vec4 *conicOpacity,
+                                   const dim3 grid,
+                                   uint32_t *tilesTouched,
+                                   bool prefiltered,
+                                   glm::ivec2 *rects,
+                                   glm::vec3 boxMin,
+                                   glm::vec3 boxMax,
+                                   ForwardParams params)
     {
         namespace cg = cooperative_groups;
         size_t idx = cg::this_grid().thread_rank();
@@ -311,67 +311,114 @@ namespace gscuda
         //            so we'll just skip here.
 
         // 3. If covariance matrices are precomputed, use them; otherwise we do it ourselves
-        const float *cov3D = nullptr;
-        if (cov3DPrecomp)
+        if (!params.ellipseApprox)
         {
-            cov3D = &cov3DPrecomp[idx * 6];
+            const float *cov3D = nullptr;
+            if (cov3DPrecomp)
+            {
+                cov3D = &cov3DPrecomp[idx * 6];
+            }
+            else
+            {
+                computeCov3D(glm::vec3(scales[idx]), scaleModifier, rotations[idx], &cov3Ds[idx * 6]);
+                cov3D = &cov3Ds[idx * 6];
+            }
+            // 4. TODO: MAGIC 1: compute screen space covariance matrix
+            glm::vec3 cov = computeCov2D(means3D[idx], focalDist, tanFOVx, tanFOVy, cov3D, viewMatrix);
+
+            // 4.1. Invert covariance (what is happening here???)
+            float det = cov.x * cov.z - cov.y * cov.y;
+            if (det == 0.0f)
+            {
+                return;
+            }
+            float detInv = 1.0f / det;
+            glm::vec3 conic = { cov.z * detInv, -cov.y * detInv, cov.x * detInv };
+
+            // 5. Compute extent in screen space.
+            float mid = 0.5f * (cov.x + cov.z);
+            float lambda1 = mid + sqrtf(glm::max(0.1f, mid * mid - det));
+            float lambda2 = mid - sqrtf(glm::max(0.1f, mid * mid - det));
+            float myRadius = ceil(3.0f * sqrtf(glm::max(lambda1, lambda2)));
+            glm::vec2 pointImage = (glm::vec2(projected) * 0.5f + 0.5f) * glm::vec2(width, height);
+            glm::uvec2 rectMin, rectMax;
+
+            // 6. Calculate what rects are we in... maybe
+            if (rects == nullptr)
+            {
+                getRect(pointImage, myRadius, rectMin, rectMax, grid);
+            }
+            else
+            {
+                const glm::ivec2 myRect = glm::ivec2((int) ceil(3.0f * sqrtf(cov.x)), (int) ceil(3.0f * cov.z));
+                rects[idx] = myRect;
+                getRect(pointImage, myRect, rectMin, rectMax, grid);
+            }
+            if ((rectMax.x - rectMin.x) * (rectMax.y - rectMin.y) == 0)
+            {
+                return;
+            }
+
+            // 7. Use colors if they are precomputed; otherwise compute SH colors
+            if (!colorsPrecomp)
+            {
+                const glm::vec3 &result = *reinterpret_cast<const glm::vec3 *>(&shs[idx * 48]);
+                rgb[idx] = 0.5f + 0.4f * result; // Just use the bare bones SH first
+            }
+
+            // 8. Set depth
+            depths[idx] = projected.z;
+            radii[idx] = myRadius;
+            means2D[idx] = pointImage;
+            // Inverted covariance and conic opacity
+            conicOpacity[idx] = glm::vec4(conic.x, conic.y, conic.z, opacities[idx]);
+            tilesTouched[idx] = (rectMax.x - rectMin.x) * (rectMax.y - rectMin.y);
         }
         else
         {
-            computeCov3D(glm::vec3(scales[idx]), scaleModifier, rotations[idx], &cov3Ds[idx * 6]);
-            cov3D = &cov3Ds[idx * 6];
+            // TODO: ellipse approximation here
+            glm::mat3 normAxes;
+            normAxes[0] = glm::vec3(viewMatrix[0], viewMatrix[1], viewMatrix[2]);
+        
         }
+    }
 
-        // 4. TODO: MAGIC 1: compute screen space covariance matrix
-        glm::vec3 cov = computeCov2D(means3D[idx], focalDist, tanFOVx, tanFOVy, cov3D, viewMatrix);
-
-        // 4.1. Invert covariance (what is happening here???)
-        float det = cov.x * cov.z - cov.y * cov.y;
-        if (det == 0.0f)
+    /**
+       Orthonormalize given a set of axes.
+       this is used in complement of the `completeAxes` below.
+    */
+    void orthonormalize(glm::vec3 *axes)
+    {
+        for (int i = 1; i < 3; i++)
         {
-            return;
+            for (int j = 0; j < i; j++)
+            {
+                float dot = glm::dot(axes[i], axes[j]);
+                axes[i] -= axes[j] * dot;
+            }
+            axes[i] = glm::normalize(axes[i]);
         }
-        float detInv = 1.0f / det;
-        glm::vec3 conic = { cov.z * detInv, -cov.y * detInv, cov.x * detInv };
+    }
 
-        // 5. Compute extent in screen space.
-        float mid = 0.5f * (cov.x + cov.z);
-        float lambda1 = mid + sqrtf(glm::max(0.1f, mid * mid - det));
-        float lambda2 = mid - sqrtf(glm::max(0.1f, mid * mid - det));
-        float myRadius = ceil(3.0f * sqrtf(glm::max(lambda1, lambda2)));
-        glm::vec2 pointImage = (glm::vec2(projected) * 0.5f + 0.5f) * glm::vec2(width, height);
-        glm::uvec2 rectMin, rectMax;
-
-        // 6. Calculate what rects are we in... maybe
-        if (rects == nullptr)
+    /**
+       Given *ONE* input axis (`axes[0]`), completes the rest
+       and fill them into the matrix. Note, the input matrix MUST be
+       incomplete. Or they WILL be overwritten!
+    */
+    void completeAxes(float *axes)
+    {
+        glm::vec3 *axesVec3 = reinterpret_cast<glm::vec3 *>(axes);
+        const glm::vec3 &i = axesVec3[0];
+        if (fabs(i.x) > fabs(i.y))
         {
-            getRect(pointImage, myRadius, rectMin, rectMax, grid);
+            axesVec3[1] = glm::vec3(-i.z, 0.0f, i.x);
         }
         else
         {
-            const glm::ivec2 myRect = glm::ivec2((int) ceil(3.0f * sqrtf(cov.x)), (int) ceil(3.0f * cov.z));
-            rects[idx] = myRect;
-            getRect(pointImage, myRect, rectMin, rectMax, grid);
+            axesVec3[1] = glm::vec3(0.0, i.z, -i.y);
         }
-        if ((rectMax.x - rectMin.x) * (rectMax.y - rectMin.y) == 0)
-        {
-            return;
-        }
-
-        // 7. Use colors if they are precomputed; otherwise compute SH colors
-        if (!colorsPrecomp)
-        {
-            const glm::vec3 &result = *reinterpret_cast<const glm::vec3 *>(&shs[idx * 48]);
-            rgb[idx] = 0.5f + 0.4f * result; // Just use the bare bones SH first
-        }
-
-        // 8. Set depth
-        depths[idx] = projected.z;
-        radii[idx] = myRadius;
-        means2D[idx] = pointImage;
-        // Inverted covariance and conic opacity
-        conicOpacity[idx] = glm::vec4(conic.x, conic.y, conic.z, opacities[idx]);
-        tilesTouched[idx] = (rectMax.x - rectMin.x) * (rectMax.y - rectMin.y);
+        axesVec3[2] = glm::cross(i, axesVec3[1]);
+        orthonormalize(axesVec3);
     }
 
     void preprocess(int numGaussians, int shDims, int M,
@@ -401,7 +448,8 @@ namespace gscuda
                     bool prefiltered,
                     glm::ivec2 *rects,
                     glm::vec3 boxMin,
-                    glm::vec3 boxMax)
+                    glm::vec3 boxMax,
+                    ForwardParams params)
     {
         preprocessCUDA<<<(numGaussians + 255) / 256, 256>>>(numGaussians, shDims, M,
                                                             means3D, scales, scaleModifier,
@@ -411,7 +459,7 @@ namespace gscuda
                                                             width, height, tanFOVx, tanFOVy, focalDist,
                                                             radii, means2D, depths, cov3Ds, rgb, conicOpacity,
                                                             grid, tilesTouched, prefiltered, rects,
-                                                            boxMin, boxMax);
+                                                            boxMin, boxMax, params);
     }
 
     /**
@@ -536,7 +584,6 @@ namespace gscuda
             }
         }
     }
-
 
     inline __device__ float fastcos(float x)
     {
@@ -812,7 +859,8 @@ namespace gscuda
                    geomState.tilesTouched,
                    prefiltered,
                    (glm::ivec2 *) rects,
-                   minn, maxx);
+                   minn, maxx,
+                   forwardParams);
 
         // Preprocessed; next up get the full list of touched tiles
         cub::DeviceScan::InclusiveSum(geomState.scanningSpace, geomState.scanSize, geomState.tilesTouched, geomState.pointOffsets, numGaussians);
@@ -857,4 +905,3 @@ namespace gscuda
                outColor, forwardParams);
     }
 };
-

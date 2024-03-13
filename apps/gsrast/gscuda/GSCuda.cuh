@@ -16,6 +16,8 @@ namespace gscuda
     {
         bool cosineApprox;
         bool debugCosineApprox;
+        bool ellipseApprox;
+        bool adaptiveOIT;
     };
 
     /**
@@ -47,6 +49,8 @@ namespace gscuda
                        float *boxMin, // Unused; bounding box I think
                        float *boxMax);
 
+    void completeAxes(float *axes);
+
     void preprocess(int numGaussians, int shDims, int M,
                     const glm::vec4 *means3D,
                     const glm::vec4 *scales,
@@ -74,7 +78,8 @@ namespace gscuda
                     bool prefiltered,
                     glm::ivec2 *rects,
                     glm::vec3 boxMin,
-                    glm::vec3 boxMax);
+                    glm::vec3 boxMax,
+                    ForwardParams params);
 
     __global__ void duplicateWithKeys(int numGaussians,
                                       const glm::vec2 *means2D,
