@@ -1,11 +1,14 @@
 ﻿#include "Inspector.hpp"
+#include "AuxBuffer.cuh"
 #include "Database.hpp"
 #include "DrawBase.hpp"
 #include "FirstPersonCamera.hpp"
 #include "Framebuffer.hpp"
+#include "GSCuda.cuh"
 #include "SplatData.hpp"
 #include "apps/gsrast/GSGaussians.hpp"
 #include "apps/gsrast/PLYExplorer.hpp"
+#include <driver_types.h>
 #include <imgui.h>
 #include <lmdb.h>
 #include <backends/imgui_impl_glfw.h>
@@ -193,7 +196,8 @@ void Inspector::drawOverlay()
             }
         }
 
-        if (_rastWindow->getVisMode() == VisMode::Gaussians && ImGui::CollapsingHeader("CUDA"))
+        if (_rastWindow->getVisMode() == VisMode::Gaussians &&
+	    ImGui::CollapsingHeader("CUDA"))
         {
             ImGui::Text("Geometry buffer viewer");
             int ng = _rastWindow->getSplatData()->getNumGaussians();
@@ -203,6 +207,34 @@ void Inspector::drawOverlay()
                 gscuda::gs::GeometryState geomState = gaussian->mapGeometryState();
                 bool edited = ImGui::SliderInt("Select Gaussian", &_selectedGeom, 0, ng - 1);
                 edited |= ImGui::InputInt("Input Gaussian", &_selectedGeom);
+		if (ImGui::Button("Find next viewable Gaussian"))
+		{
+		    std::unique_ptr<uint32_t[]> tilesTouched(new uint32_t[ng]);
+		    cudaMemcpy(tilesTouched.get(), &geomState.tilesTouched[0],
+			       sizeof(uint32_t) * ng, cudaMemcpyDeviceToHost);
+		    bool oob = false;
+		    int i = _selectedGeom + 1;
+		    for (; i < ng; i++)
+		    {
+			if (tilesTouched[i] != 0)
+			{
+			    break;
+			}
+		    }
+ 
+		    if (i >= ng)
+		    {
+			for (i = 0; i < _selectedGeom; i++)
+			{
+			    if (tilesTouched[i] != 0)
+			    {
+				break;
+			    }
+			}
+		    }
+		    _selectedGeom = i;
+		    edited = true;
+		}
                 if (true || edited)
                 {
                     _selectedGeom = glm::clamp(_selectedGeom, 0, ng - 1);
@@ -215,6 +247,23 @@ void Inspector::drawOverlay()
                     cudaMemcpy(&_downloaded.conicOpacity, &geomState.conicOpacity[_selectedGeom], sizeof(glm::vec4), cudaMemcpyDeviceToHost);
                     cudaMemcpy(&_downloaded.rgb, &geomState.rgb[_selectedGeom], sizeof(glm::vec3), cudaMemcpyDeviceToHost);
                     cudaMemcpy(&_downloaded.pointOffset, &geomState.pointOffsets[_selectedGeom], sizeof(uint32_t), cudaMemcpyDeviceToHost);
+		    cudaMemcpy(&_downloaded.ellipsoid, &geomState.ellipsoids[_selectedGeom], sizeof(gscuda::gs::MathematicalEllipsoid), cudaMemcpyDeviceToHost);
+		    cudaMemcpy(&_downloaded.ellipse, &geomState.ellipses[_selectedGeom], sizeof(gscuda::gs::MathematicalEllipse), cudaMemcpyDeviceToHost);
+
+		    const glm::vec4 &rot = _rastWindow->getSplatData()->
+			getRotations()[_selectedGeom];
+		    const glm::vec4 &scl = _rastWindow->getSplatData()->
+			getScales()[_selectedGeom];
+		    const glm::vec4 &center = _rastWindow->getSplatData()->
+			getPositions()[_selectedGeom];
+		    glm::mat3 rotMat(0.0f);
+		    gscuda::quatToMatHost(&rotMat[0][0], &rot[0]);
+
+		    _downloaded.position = center;
+		    _downloaded.quaternion = rot;
+		    _downloaded.rotation = rotMat;
+		    _downloaded.scaling = scl;
+
                 }
                 glm::vec3 pos = _rastWindow->getSplatData()->getPositions()[_selectedGeom];
                 if (ImGui::Button("Goto"))
@@ -232,10 +281,53 @@ void Inspector::drawOverlay()
                     inspectFloat2("means2D", &_downloaded.means2D[0]);
                     inspectMat(2, 3, "cov3D", _downloaded.cov3D);
                     inspectFloat4("conic opacity", &_downloaded.conicOpacity.x);
+		    inspectEllipsoid("ellipsoid", _downloaded.ellipsoid);
+		    inspectEllipse("ellipse", _downloaded.ellipse);
                     inspectFloat3("RGB", &_downloaded.rgb.x);
                     inspectInt("point offset", (int) _downloaded.pointOffset);
+		    inspectFloat4("position", &_downloaded.position[0]);
+		    inspectFloat4("quaternion", &_downloaded.quaternion[0]);
+		    inspectMat(3, 3, "rotation", &_downloaded.rotation[0][0]);
+		    inspectMat(4, 1, "scaling", &_downloaded.scaling[0]);
+
+		    if (ImGui::Button("Test projection"))
+		    {
+			FirstPersonCamera::Ptr fpCam = std::dynamic_pointer_cast<FirstPersonCamera>(_rastWindow->getCamera());
+			const glm::mat4 view = glm::transpose(fpCam->getView());
+
+			glm::mat3 normAxes;
+			normAxes = glm::mat3(fpCam->getFront(),
+					     glm::vec3(view[0]),
+					     glm::vec3(view[1]));
+
+			glm::vec3 planeCenter = fpCam->getPosition() + normAxes[0];
+			const float planeConstant = glm::dot(planeCenter, normAxes[0]);
+			const float projectedDistance = planeConstant -
+			    glm::dot(fpCam->getPosition(), normAxes[0]);
+
+			gscuda::ellipsoidFromGaussianHost(&_testEllipsoid,
+							  &_downloaded.rotation[0][0],
+							  &_downloaded.scaling[0],
+							  &_downloaded.position[0]);
+			glm::vec3 camPos = fpCam->getPosition();
+			gscuda::projectEllipsoidHost(&_testEllipse,
+						     &_testEllipsoid,
+						     &camPos[0],
+						     &normAxes[0][0],
+						     projectedDistance);
+		    }
                     endTable();
                 }
+
+		if (startTable())
+		{
+		    inspectEllipsoid("Test ellipsoid",
+				     _testEllipsoid);
+		    inspectEllipse("Test ellipse",
+				   _testEllipse);
+		    endTable();
+		}
+ 
             }
         }
     }
@@ -342,7 +434,15 @@ void Inspector::drawOverlay()
             }
 
             edited |= ImGui::Checkbox("Ellipsoid projection approximation", &params.ellipseApprox);
-            edited |= ImGui::Checkbox("Adaptive OIT mode", &params.adaptiveOIT);
+	    if (params.ellipseApprox)
+	    {
+		ImGui::SeparatorText("Ellip proj approx params");
+		edited |= ImGui::SliderFloat("Focal dist", &params.ellipseApproxFocalDist, 1.0f, 10.0f);
+
+		ImGui::Separator();
+	    }
+
+	    edited |= ImGui::Checkbox("Adaptive OIT mode", &params.adaptiveOIT);
 
             if (edited)
             {
@@ -637,7 +737,7 @@ void Inspector::inspectMat(int rows, int cols, const char *key, const float *v)
             for (int j = 0; j < cols; j++)
             {
                 TNC
-                int index = i * cols + j;
+	        int index = j * rows + i;
                 ImGui::Text("%.6f", v[index]);
             }
         }
@@ -645,3 +745,42 @@ void Inspector::inspectMat(int rows, int cols, const char *key, const float *v)
         ImGui::TreePop();
     }
 }
+
+void Inspector::inspectEllipsoid(const char *key,
+				 const gscuda::gs::MathematicalEllipsoid &ellipsoid)
+{
+    TNR TNC ImGui::Text("%s", key);
+    snprintf(_sprinted, sizeof(_sprinted), "Inspector %d", _tableCounter++);
+    TNC if (ImGui::TreeNode(_sprinted))
+    {
+	if (startTable())
+	{
+	    inspectMat(3, 3, "A", &ellipsoid.A[0][0]);
+	    inspectFloat3("b", &ellipsoid.b[0]);
+	    inspectFloat("c", ellipsoid.c);
+	    endTable();
+	}
+	ImGui::TreePop();
+    }
+}
+
+void Inspector::inspectEllipse(const char *key,
+			       const gscuda::gs::MathematicalEllipse &ellipse)
+{
+    TNR TNC ImGui::Text("%s", key);
+    snprintf(_sprinted, sizeof(_sprinted), "Inspector %d", _tableCounter++);
+    TNC if (ImGui::TreeNode(_sprinted))
+    {
+	if (startTable())
+	{
+	    inspectMat(2, 2, "A", &ellipse.A[0][0]);
+	    inspectFloat2("b", &ellipse.b.x);
+	    inspectFloat("c", ellipse.c);
+	    inspectFloat2("eigenvalues", &ellipse.eigenvalues[0]);
+	    inspectBoolean("degenerate", ellipse.degenerate);
+	    endTable();
+	}
+	ImGui::TreePop();
+    }
+}
+

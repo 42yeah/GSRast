@@ -21,7 +21,7 @@ GSRastWindow::GSRastWindow() : Window(WINDOW_TITLE, DEFAULT_WINDOW_W, DEFAULT_WI
     _pcShader = std::make_shared<PointCloudShader>(_firstPersonCamera);
     _splatShader = std::make_shared<SplatShader>(_firstPersonCamera);
     _copyShader = std::make_shared<CopyShader>();
-    _splatData = std::make_shared<SplatData>("data.ply");
+    _splatData = std::make_shared<SplatData>("data1.ply");
     _renderSelector = std::make_shared<RenderSelector>();
     _renderSelector->reset(nullptr);
     _visMode = VisMode::PointCloud;

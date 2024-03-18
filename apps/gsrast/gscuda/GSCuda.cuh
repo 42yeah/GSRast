@@ -3,6 +3,14 @@
 #include <cuda_runtime.h>
 #include <functional>
 #include <glm/glm.hpp>
+#include "AuxBuffer.cuh"
+
+#define CHECK_CUDA_ERROR(A) \
+A; \
+cudaDeviceSynchronize(); \
+if (cudaPeekAtLastError() != cudaSuccess) \
+std::cerr << "CUDA error at " << __FILE__ << ":" << __LINE__ << ": " << cudaGetErrorString(cudaGetLastError()) << "?" << std::endl;
+
 
 /**
  * gscuda is the CUDA part of the GSRast, where we try to rasterize 
@@ -18,6 +26,9 @@ namespace gscuda
         bool debugCosineApprox;
         bool ellipseApprox;
         bool adaptiveOIT;
+
+	float ellipseApproxFocalDist; // Focal distance to render the
+				      // approximated ellipses.
     };
 
     /**
@@ -49,49 +60,7 @@ namespace gscuda
                        float *boxMin, // Unused; bounding box I think
                        float *boxMax);
 
-    void completeAxes(float *axes);
-
-    void preprocess(int numGaussians, int shDims, int M,
-                    const glm::vec4 *means3D,
-                    const glm::vec4 *scales,
-                    const float scaleModifier,
-                    const glm::vec4 *rotations,
-                    const float *opacities,
-                    const float *shs,
-                    bool *clamped,
-                    const float *conv3DPrecomp,
-                    const float *colorsPrecomp,
-                    const float *viewMatrix,
-                    const float *projMatrix,
-                    const glm::vec3 *camPos,
-                    int width, int height,
-                    float focalDist,
-                    float tanFOVx, float tanFOVy,
-                    int *radii,
-                    glm::vec2 *means2D,
-                    float *depths,
-                    float *cov3Ds,
-                    glm::vec3 *rgb,
-                    glm::vec4 *conicOpacity,
-                    const dim3 grid,
-                    uint32_t *tilesTouched,
-                    bool prefiltered,
-                    glm::ivec2 *rects,
-                    glm::vec3 boxMin,
-                    glm::vec3 boxMax,
-                    ForwardParams params);
-
-    __global__ void duplicateWithKeys(int numGaussians,
-                                      const glm::vec2 *means2D,
-                                      const float *depths,
-                                      const uint32_t *offsets,
-                                      uint64_t *gaussianKeysUnsorted,
-                                      uint32_t *gaussianValuesUnsorted,
-                                      int *radii,
-                                      dim3 grid,
-                                      glm::ivec2 *rects);
-
-    __global__ void identifyTileRanges(int numRendered, uint64_t *pointListKeys, glm::uvec2 *ranges);
+    __host__ __device__ void completeAxes(float *axes);
 
     void render(const dim3 grid, const dim3 block,
                 const glm::uvec2 *ranges, const uint32_t *pointList,
@@ -137,4 +106,25 @@ namespace gscuda
                  float *boxMin, // Unused; bounding box I think
                  float *boxMax,
                  ForwardParams forwardParams);
+
+    /**
+       Host code for debugging.
+       This can convert quaternions (vec4 as input) to rotation
+       matrices (mat3 as output.)
+       nvcc actually doens't produce the same name mangling as MSVC
+       somehow; that's why we need to guarantee that all of them are
+       primitive types.
+    */
+    void quatToMatHost(float *mat, const float *q);
+
+    void ellipsoidFromGaussianHost(gs::MathematicalEllipsoid *ellip,
+				   const float *rot, // mat3,
+				   const float *scl, // vec4,
+				   const float *center); // vec4
+
+    void projectEllipsoidHost(gs::MathematicalEllipse *ellipse,
+			      const gs::MathematicalEllipsoid *ellipsoid,
+			      const float *camPos, // vec3
+			      const float *planeAxes, // mat3
+			      const float projectedDistance);
 };

@@ -4,12 +4,8 @@
 #include "Config.hpp"
 #include <cuda_runtime.h>
 #include <driver_types.h>
+#include "gscuda/GSCuda.cuh"
 
-#define CHECK_CUDA_ERROR(A) \
-A; \
-cudaDeviceSynchronize(); \
-if (cudaPeekAtLastError() != cudaSuccess) \
-std::cerr << "CUDA error at " << __FILE__ << ":" << __LINE__ << ": " << cudaGetErrorString(cudaGetLastError()) << "?" << std::endl;
 
 template<typename T>
 class CudaBuffer

@@ -35,6 +35,34 @@ namespace gscuda
 
     namespace gs
     {
+	/**
+	   Gaussian acceleration data structures: for now, we will get
+	   both ellipsoid and ellipse into our GeometryState to
+	   guarantee the results are indeed correct.
+	*/
+
+        /**
+	   Mathematical ellipsoid representation
+	   i.e. $x^T A x + b x + c = 0$.
+	   This should be constructed from scaling, rotation, and
+	   translation. It's just the way it is.
+	*/
+	struct MathematicalEllipsoid
+	{
+	    glm::mat3 A;
+	    glm::vec3 b;
+	    float c;
+	};
+
+	struct MathematicalEllipse
+	{
+	    glm::mat2 A;
+	    glm::vec2 b;
+	    float c;
+	    glm::vec2 eigenvalues;
+	    bool degenerate;
+	};
+
         struct GeometryState
         {
             uint32_t *tilesTouched;
@@ -49,6 +77,10 @@ namespace gscuda
             glm::vec4 *conicOpacity;
             glm::vec3 *rgb;
             uint32_t *pointOffsets;
+
+	    // DS required for ellipsoid projection approximation.
+	    MathematicalEllipsoid *ellipsoids;
+	    MathematicalEllipse *ellipses;
 
             static GeometryState fromChunk(char *&, int numGaussians);
         };

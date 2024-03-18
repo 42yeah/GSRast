@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "AuxBuffer.cuh"
 #include "DrawBase.hpp"
 #include "FirstPersonCamera.hpp"
 #include "GSRastWindow.hpp"
@@ -31,8 +32,20 @@ struct DownloadedGeometryState
     glm::vec2 means2D;
     float cov3D[6];
     glm::vec4 conicOpacity;
+    gscuda::gs::MathematicalEllipsoid ellipsoid;
+    gscuda::gs::MathematicalEllipse ellipse;
     glm::vec3 rgb;
     uint32_t pointOffset;
+
+    /**
+       Actually, I am now more than one GeometryState; I will inspect
+       other Gaussian-related stuffs as well, for example, their
+       rotation, scaling, quaternions, etc.
+    */
+    glm::vec4 position;
+    glm::vec4 quaternion;
+    glm::mat3 rotation;
+    glm::vec4 scaling;
 };
 
 /**
@@ -94,6 +107,10 @@ protected:
     void inspectBBox(const char *key, const BBox &bbox);
     void inspectInt(const char *key, int v);
     void inspectMat(int rows, int cols, const char *key, const float *v);
+    void inspectEllipsoid(const char *key,
+			  const gscuda::gs::MathematicalEllipsoid &ellipsoid);
+    void inspectEllipse(const char *key,
+			const gscuda::gs::MathematicalEllipse &ellipse);
 
     void drawOverlay();
 
@@ -110,6 +127,8 @@ protected:
     char _screenshotPath[512];
     int _selectedGeom;
     DownloadedGeometryState _downloaded;
+    gscuda::gs::MathematicalEllipsoid _testEllipsoid;
+    gscuda::gs::MathematicalEllipse _testEllipse;
 
     PLYExplorer::Ptr _plyExplorer;
     bool _showDirs;
