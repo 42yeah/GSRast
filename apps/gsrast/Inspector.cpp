@@ -235,7 +235,7 @@ void Inspector::drawOverlay()
 		    _selectedGeom = i;
 		    edited = true;
 		}
-                if (true || edited)
+                if (edited)
                 {
                     _selectedGeom = glm::clamp(_selectedGeom, 0, ng - 1);
                     cudaMemcpy(&_downloaded.tilesTouched, &geomState.tilesTouched[_selectedGeom], sizeof(uint32_t), cudaMemcpyDeviceToHost);
@@ -264,6 +264,11 @@ void Inspector::drawOverlay()
 		    _downloaded.rotation = rotMat;
 		    _downloaded.scaling = scl;
 
+		    // Need to update the selected geom in the
+		    // forward params as well
+		    gscuda::ForwardParams params = gaussian->getForwardParams();
+		    params.selected = _selectedGeom;
+		    gaussian->setForwardParams(params);
                 }
                 glm::vec3 pos = _rastWindow->getSplatData()->getPositions()[_selectedGeom];
                 if (ImGui::Button("Goto"))

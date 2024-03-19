@@ -55,6 +55,7 @@ GSGaussians::GSGaussians(int width, int height, FirstPersonCamera::Ptr camera) :
     _opacities = std::make_shared<CudaBuffer<float> >();
     _shs = std::make_shared<CudaBuffer<float> >();
     _view = std::make_shared<CudaBuffer<glm::mat4> >();
+    _perspective = std::make_shared<CudaBuffer<glm::mat4> >();
     _projection = std::make_shared<CudaBuffer<glm::mat4> >();
     _camPos = std::make_shared<CudaBuffer<glm::vec3> >();
     _background = std::make_shared<CudaBuffer<glm::vec3> >();
@@ -62,6 +63,7 @@ GSGaussians::GSGaussians(int width, int height, FirstPersonCamera::Ptr camera) :
 
     _view->allocate(sizeof(glm::mat4));
     _projection->allocate(sizeof(glm::mat4));
+    _perspective->allocate(sizeof(glm::mat4));
     _camPos->allocate(sizeof(glm::vec3));
     _background->allocate(sizeof(glm::vec3));
 
@@ -70,12 +72,15 @@ GSGaussians::GSGaussians(int width, int height, FirstPersonCamera::Ptr camera) :
     _geomPtr = nullptr;
     _binningPtr = nullptr;
     _imgPtr = nullptr;
+    _compositePtr = nullptr;
     _allocatedGeom = 0;
     _allocatedBinning = 0;
     _allocatedImg = 0;
+    _allocatedComposite = 0;
     _geomBufferFunc = resizeFunctional(&_geomPtr, _allocatedGeom);
     _binningBufferFunc = resizeFunctional(&_binningPtr, _allocatedBinning);
     _imgBufferFunc = resizeFunctional(&_imgPtr, _allocatedImg);
+    _compositeLayerBufferFunc = resizeFunctional(&_compositePtr, _allocatedComposite);
 
     _splatData = nullptr;
     _forwardParams.cosineApprox = false;
@@ -83,6 +88,7 @@ GSGaussians::GSGaussians(int width, int height, FirstPersonCamera::Ptr camera) :
     _forwardParams.ellipseApprox = false;
     _forwardParams.adaptiveOIT = false;
     _forwardParams.ellipseApproxFocalDist = 2.0f;
+    _forwardParams.selected = -1;
 }
 
 GSGaussians::~GSGaussians()
@@ -98,6 +104,10 @@ GSGaussians::~GSGaussians()
     if (_imgPtr)
     {
         CHECK_CUDA_ERROR(cudaFree(_imgPtr));
+    }
+    if (_compositePtr)
+    {
+	CHECK_CUDA_ERROR(cudaFree(_compositePtr));
     }
 }
 
@@ -174,6 +184,7 @@ void GSGaussians::draw()
     projection = glm::transpose(projection);
 
     _view->set(view);
+    _perspective->set(_camera->getPerspective());
     _projection->set(projection);
     _camPos->set(_camera->getPosition());
 
@@ -184,6 +195,7 @@ void GSGaussians::draw()
         FORWARD(_geomBufferFunc,
                 _binningBufferFunc,
                 _imgBufferFunc,
+		_compositeLayerBufferFunc,
                 _numGaussians,
                 3,
                 16,
@@ -199,6 +211,7 @@ void GSGaussians::draw()
                 _rotations->getPtr(),
                 nullptr,
                 (const float *) _view->getPtr(),
+		(const float *) _perspective->getPtr(),
                 (const float *) _projection->getPtr(),
                 (const float *) _camPos->getPtr(),
                 tanFOVx,

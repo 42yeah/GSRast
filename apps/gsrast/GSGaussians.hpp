@@ -38,7 +38,7 @@ protected:
     int _width, _height, _numGaussians;
 
     CudaBuffer<float>::Ptr _positions, _rotations, _shs, _scales, _opacities;
-    CudaBuffer<glm::mat4>::Ptr _view, _projection;
+    CudaBuffer<glm::mat4>::Ptr _view, _perspective, _projection;
     CudaBuffer<glm::vec3>::Ptr _camPos, _background;
     CudaBuffer<int>::Ptr _rects;
 
@@ -48,8 +48,9 @@ protected:
     FirstPersonCamera::Ptr _camera;
 
     std::function<char *(size_t)> _geomBufferFunc, _binningBufferFunc, _imgBufferFunc;
-    void *_geomPtr, *_binningPtr, *_imgPtr;
-    size_t _allocatedGeom, _allocatedBinning, _allocatedImg;
+    std::function<char *(size_t)> _compositeLayerBufferFunc;
+    void *_geomPtr, *_binningPtr, *_imgPtr, *_compositePtr;
+    size_t _allocatedGeom, _allocatedBinning, _allocatedImg, _allocatedComposite;
     SplatData::Ptr _splatData;
 
     gscuda::ForwardParams _forwardParams;

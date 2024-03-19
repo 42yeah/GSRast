@@ -29,6 +29,7 @@ namespace gscuda
 
 	float ellipseApproxFocalDist; // Focal distance to render the
 				      // approximated ellipses.
+	int selected;
     };
 
     /**
@@ -84,6 +85,7 @@ namespace gscuda
     void forward(std::function<char *(size_t)> geometryBuffer,
                  std::function<char *(size_t)> binningBuffer,
                  std::function<char *(size_t)> imageBuffer,
+		 std::function<char *(size_t)> compositeLayerBuffer,
                  int numGaussians, int shDims, int M,
                  const float *background, // CUDA vec3
                  int width, int height,
@@ -96,6 +98,7 @@ namespace gscuda
                  const float *rotations, // CUDA per-gaussian rotation
                  const float *cov3DPrecomp, // Unused; precomputed 3D covariance matrices
                  const float *viewMatrix, // CUDA mat4
+		 const float *perspectiveMatrix, // CUDA mat4
                  const float *projMatrix, // CUDA mat4: perspective * view
                  const float *camPos, // CUDA vec3
                  float tanFOVx, float tanFOVy, // for focal length calculation
@@ -106,6 +109,14 @@ namespace gscuda
                  float *boxMin, // Unused; bounding box I think
                  float *boxMax,
                  ForwardParams forwardParams);
+
+    /**
+       Given two color layers, one in the bottom and one on the top,
+       my job is to composite both of them. Alpha is not part of the
+       consideration; therefore, I am really only suitable for
+       compositing debug data.
+    */
+    void composite(int width, int height, float *bottom, float *top);
 
     /**
        Host code for debugging.

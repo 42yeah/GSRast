@@ -1,6 +1,7 @@
 #include "GSCuda.cuh"
 #include <cuda_runtime_api.h>
 #include <driver_types.h>
+#include <glm/common.hpp>
 #include <glm/fwd.hpp>
 #include <glm/geometric.hpp>
 #include <cmath>
@@ -164,8 +165,8 @@ namespace gscuda
 
     void quatToMatHost(float *mat, const float *q)
     {
-	glm::mat3 out = quatToMat(reinterpret_cast<const glm::vec4 &>(*q));
-	memcpy(mat, &out, sizeof(glm::mat3));
+        glm::mat3 out = quatToMat(reinterpret_cast<const glm::vec4 &>(*q));
+        memcpy(mat, &out, sizeof(glm::mat3));
     }
 
     /**
@@ -237,71 +238,94 @@ namespace gscuda
         return glm::vec3(cov[0][0], cov[0][1], cov[1][1]);
     }
 
-    __host__ __device__ void ellipsoidFromGaussian(gs::MathematicalEllipsoid &ellip,
-						   const glm::mat3 &rot,
-						   const glm::vec4 &scl,
-						   const glm::vec4 &center)
+    __device__ void blitRect(float *compositeBuffer, int width, int height,
+                             int x, int y, int w, int h,
+                             glm::vec3 color)
     {
-	// Some minor memory speed optimizations
-	memset(&ellip.A, 0, sizeof(glm::mat3));
-	glm::vec3 ratioX = 0.5f * rot[0] / scl.x;
-	glm::vec3 ratioY = 0.5f * rot[1] / scl.y;
-	glm::vec3 ratioZ = 0.5f * rot[2] / scl.z;
-	ellip.A += glm::outerProduct(ratioX, ratioX);
-	ellip.A += glm::outerProduct(ratioY, ratioY);
-	ellip.A += glm::outerProduct(ratioZ, ratioZ);
-	glm::vec3 prod = ellip.A * glm::vec3(center);
-	ellip.b = -2.0f * prod;
-	ellip.c = glm::dot(glm::vec3(center), prod) - 1.0f;
+        w = glm::min(w, width);
+        h = glm::min(h, height);
+        const size_t stride = width * height;
+        for (int yy = 0; yy < h; yy++)
+        {
+            for (int xx = 0; xx < w; xx++)
+            {
+                if (x + xx < 0 || x + xx >= width || y + yy < 0 || y + yy >= height)
+                {
+                    continue;
+                }
+                int idx = (y + yy) * width + (x + xx);
+                compositeBuffer[idx + stride * 0] = color.r;
+                compositeBuffer[idx + stride * 1] = color.g;
+                compositeBuffer[idx + stride * 2] = color.b;
+            }
+        }
+    }
 
-	// Normalize the lot - we will need an efficient way for the
-	// normalization. Normalization is required because numerical
-	// instabilities will fuck our ellipsoid three times over (and
-	// therefore, the projected ellipse.) One way, obviously, is
-	// to use double precision; however, are we really stepping
-	// that low? So without further ado, three methods to prevent
-	// instabilities:
-	// 1. Finding the minimum value and normalizing it to 1. This
-	// prevents the minimum value from degenerating.
-	float minVal = std::numeric_limits<float>::max();
-	float maxVal = std::numeric_limits<float>::lowest();
-	float avgVal = 0.0f;
-	for (int i = 0; i < 3; i++)
-	{
-	    for (int j = 0; j < 3; j++)
-	    {
-		float fabsA = fabs(ellip.A[i][j]);
-		minVal = minVal > fabsA ? fabsA : minVal;
-		maxVal = maxVal < fabsA ? fabsA : maxVal;
-		avgVal += fabsA;
-	    }
-	    float fabsB = fabs(ellip.b[i]);
-	    avgVal += fabsB;
-	    minVal = minVal > fabsB ? fabsB : minVal;
-	    maxVal = maxVal < fabsB ? fabsB : maxVal;
-	}
-	float fabsC = fabs(ellip.c);
-	avgVal += fabsC;
-	minVal = minVal > fabsC ? fabsC : minVal;
-	maxVal = maxVal < fabsC ? fabsC : maxVal;
-	avgVal = sqrtf(avgVal / 13.0f);
+    __host__ __device__ void ellipsoidFromGaussian(gs::MathematicalEllipsoid &ellip,
+                                                   const glm::mat3 &rot,
+                                                   const glm::vec4 &scl,
+                                                   const glm::vec4 &center)
+    {
+        // Some minor memory speed optimizations
+        memset(&ellip.A, 0, sizeof(glm::mat3));
+        glm::vec3 ratioX = 0.5f * rot[0] / scl.x;
+        glm::vec3 ratioY = 0.5f * rot[1] / scl.y;
+        glm::vec3 ratioZ = 0.5f * rot[2] / scl.z;
+        ellip.A += glm::outerProduct(ratioX, ratioX);
+        ellip.A += glm::outerProduct(ratioY, ratioY);
+        ellip.A += glm::outerProduct(ratioZ, ratioZ);
+        glm::vec3 prod = ellip.A * glm::vec3(center);
+        ellip.b = -2.0f * prod;
+        ellip.c = glm::dot(glm::vec3(center), prod) - 1.0f;
 
-	float scale = 10000.0f / maxVal;
-	ellip.A *= scale; // make the ellipses slightly bigger
-	ellip.b *= scale;
-	ellip.c *= scale;
+        // Normalize the lot - we will need an efficient way for the
+        // normalization. Normalization is required because numerical
+        // instabilities will fuck our ellipsoid three times over (and
+        // therefore, the projected ellipse.) One way, obviously, is
+        // to use double precision; however, are we really stepping
+        // that low? So without further ado, three methods to prevent
+        // instabilities:
+        // 1. Finding the minimum value and normalizing it to 1. This
+        // prevents the minimum value from degenerating.
+        float minVal = std::numeric_limits<float>::max();
+        float maxVal = std::numeric_limits<float>::lowest();
+        float avgVal = 0.0f;
+        for (int i = 0; i < 3; i++)
+        {
+            for (int j = 0; j < 3; j++)
+            {
+                float fabsA = fabs(ellip.A[i][j]);
+                minVal = minVal > fabsA ? fabsA : minVal;
+                maxVal = maxVal < fabsA ? fabsA : maxVal;
+                avgVal += fabsA;
+            }
+            float fabsB = fabs(ellip.b[i]);
+            avgVal += fabsB;
+            minVal = minVal > fabsB ? fabsB : minVal;
+            maxVal = maxVal < fabsB ? fabsB : maxVal;
+        }
+        float fabsC = fabs(ellip.c);
+        avgVal += fabsC;
+        minVal = minVal > fabsC ? fabsC : minVal;
+        maxVal = maxVal < fabsC ? fabsC : maxVal;
+        avgVal = sqrtf(avgVal / 13.0f);
+
+        float scale = -1.0f / ellip.c;
+        ellip.A *= scale; // make the ellipses slightly bigger
+        ellip.b *= scale;
+        ellip.c *= scale;
     }
 
 
     void ellipsoidFromGaussianHost(gs::MathematicalEllipsoid *ellip,
-				   const float *rot, // mat3,
-				   const float *scl, // vec4,
-				   const float *center) // vec4
+                                   const float *rot, // mat3,
+                                   const float *scl, // vec4,
+                                   const float *center) // vec4
     {
-	ellipsoidFromGaussian(*ellip,
-			      reinterpret_cast<const glm::mat3 &>(*rot),
-			      reinterpret_cast<const glm::vec4 &>(*scl),
-			      reinterpret_cast<const glm::vec4 &>(*center));
+        ellipsoidFromGaussian(*ellip,
+                              reinterpret_cast<const glm::mat3 &>(*rot),
+                              reinterpret_cast<const glm::vec4 &>(*scl),
+                              reinterpret_cast<const glm::vec4 &>(*center));
     }
 
     /**
@@ -310,74 +334,74 @@ namespace gscuda
        from the GeometricTools:PerspectiveProjectionEllipsoid.pdf
     */
     __host__ __device__ void projectEllipsoid(gs::MathematicalEllipse &ellipse,
-					      const gs::MathematicalEllipsoid &ellipsoid,
-					      const glm::vec3 &camPos,
-					      const glm::mat3 &planeAxes,
-					      const float projectedDistance)
+                                              const gs::MathematicalEllipsoid &ellipsoid,
+                                              const glm::vec3 &camPos,
+                                              const glm::mat3 &planeAxes,
+                                              const float projectedDistance)
     {
-	glm::vec3 AE = ellipsoid.A * camPos;
-	float qFormEAE = glm::dot(camPos, AE);
-	float dotBE = glm::dot(ellipsoid.b, camPos);
-	float quadE = 4.0f * (qFormEAE + dotBE + ellipsoid.c);
-	glm::vec3 Bp2AE = ellipsoid.b + 2.0f * AE;
-	glm::mat3 M = glm::outerProduct(Bp2AE, Bp2AE) - quadE * ellipsoid.A;
+        glm::vec3 AE = ellipsoid.A * camPos;
+        float qFormEAE = glm::dot(camPos, AE);
+        float dotBE = glm::dot(ellipsoid.b, camPos);
+        float quadE = 4.0f * (qFormEAE + dotBE + ellipsoid.c);
+        glm::vec3 Bp2AE = ellipsoid.b + 2.0f * AE;
+        glm::mat3 M = glm::outerProduct(Bp2AE, Bp2AE) - quadE * ellipsoid.A;
 
-	// Compute projected coeffs.
-	glm::vec3 Mu = M * planeAxes[1];
-	glm::vec3 Mv = M * planeAxes[2];
-	glm::vec3 Mn = M * planeAxes[0];
+        // Compute projected coeffs.
+        glm::vec3 Mu = M * planeAxes[1];
+        glm::vec3 Mv = M * planeAxes[2];
+        glm::vec3 Mn = M * planeAxes[0];
 
-	float twoN = 2.0f * projectedDistance;
+        float twoN = 2.0f * projectedDistance;
 
-	ellipse.A[0][0] = glm::dot(planeAxes[1], Mu);
-	ellipse.A[0][1] = glm::dot(planeAxes[1], Mv);
-	ellipse.A[1][0] = ellipse.A[0][1];
-	ellipse.A[1][1] = glm::dot(planeAxes[2], Mv);
-	ellipse.b[0] = twoN * glm::dot(planeAxes[1], Mn);
-	ellipse.b[1] = twoN * glm::dot(planeAxes[2], Mn);
-	ellipse.c = projectedDistance * projectedDistance * glm::dot(planeAxes[0], Mn);
+        ellipse.A[0][0] = glm::dot(planeAxes[1], Mu);
+        ellipse.A[0][1] = glm::dot(planeAxes[1], Mv);
+        ellipse.A[1][0] = ellipse.A[0][1];
+        ellipse.A[1][1] = glm::dot(planeAxes[2], Mv);
+        ellipse.b[0] = twoN * glm::dot(planeAxes[1], Mn);
+        ellipse.b[1] = twoN * glm::dot(planeAxes[2], Mn);
+        ellipse.c = projectedDistance * projectedDistance * glm::dot(planeAxes[0], Mn);
 
-	// Solve for eigenvectors & eigenvalues.
-	const float aPlusd = ellipse.A[0][0] + ellipse.A[1][1];
-	const float delta = (aPlusd * aPlusd) - 4.0f * (ellipse.A[0][0] * ellipse.A[1][1] -
-							 ellipse.A[0][1] * ellipse.A[1][0]);
-	if (delta < 0.0f)
-	{
-	    // the ellipse is invalid.
-	    ellipse.degenerate = true;
-	    return;
-	}
+        // Solve for eigenvectors & eigenvalues.
+        const float aPlusd = ellipse.A[0][0] + ellipse.A[1][1];
+        const float delta = (aPlusd * aPlusd) - 4.0f * (ellipse.A[0][0] * ellipse.A[1][1] -
+                                                         ellipse.A[0][1] * ellipse.A[1][0]);
+        if (delta < 0.0f)
+        {
+            // the ellipse is invalid.
+            ellipse.degenerate = true;
+            return;
+        }
 
-	float lambda1 = 0.5f * ((aPlusd) + sqrtf(delta));
-	float lambda2 = 0.5f * ((aPlusd) - sqrtf(delta));
-	if (lambda1 == 0.0f ||
-	    lambda2 == 0.0f)
-	{
-	    // Oops, time to bail
-	    ellipse.degenerate = true;
-	    return;
-	}
-	ellipse.degenerate = false;
-	ellipse.eigenvalues = glm::vec2(lambda1, lambda2);
+        float lambda1 = 0.5f * ((aPlusd) + sqrtf(delta));
+        float lambda2 = 0.5f * ((aPlusd) - sqrtf(delta));
+        if (lambda1 == 0.0f ||
+            lambda2 == 0.0f)
+        {
+            // Oops, time to bail
+            ellipse.degenerate = true;
+            return;
+        }
+        ellipse.degenerate = false;
+        ellipse.eigenvalues = glm::vec2(lambda1, lambda2);
 
-	// printf("proj dist: %f, Mn: %f %f %f, planeAxes[0]: %f %f %f, \
-	//        planeAxes[1]: %f %f %f, planeAxes[2]: %f %f %f\n",
-	//        projectedDistance, Mn.x, Mn.y, Mn.z,
-	//        planeAxes[0].x, planeAxes[0].y, planeAxes[0].z,
-	//        planeAxes[1].x, planeAxes[1].y, planeAxes[1].z,
-	//        planeAxes[2].x, planeAxes[2].y, planeAxes[2].z);
+        // printf("proj dist: %f, Mn: %f %f %f, planeAxes[0]: %f %f %f, \
+        //        planeAxes[1]: %f %f %f, planeAxes[2]: %f %f %f\n",
+        //        projectedDistance, Mn.x, Mn.y, Mn.z,
+        //        planeAxes[0].x, planeAxes[0].y, planeAxes[0].z,
+        //        planeAxes[1].x, planeAxes[1].y, planeAxes[1].z,
+        //        planeAxes[2].x, planeAxes[2].y, planeAxes[2].z);
     }
 
     void projectEllipsoidHost(gs::MathematicalEllipse *ellipse,
-			      const gs::MathematicalEllipsoid *ellipsoid,
-			      const float *camPos, // vec3
-			      const float *planeAxes, // mat3
-			      const float projectedDistance)
+                              const gs::MathematicalEllipsoid *ellipsoid,
+                              const float *camPos, // vec3
+                              const float *planeAxes, // mat3
+                              const float projectedDistance)
     {
-	projectEllipsoid(*ellipse, *ellipsoid,
-			 reinterpret_cast<const glm::vec4 &>(*camPos),
-			 reinterpret_cast<const glm::mat3 &>(*planeAxes),
-			 projectedDistance);
+        projectEllipsoid(*ellipse, *ellipsoid,
+                         reinterpret_cast<const glm::vec4 &>(*camPos),
+                         reinterpret_cast<const glm::mat3 &>(*planeAxes),
+                         projectedDistance);
     }
 
     /**
@@ -408,6 +432,52 @@ namespace gscuda
         };
     }
 
+    /**
+       Use this function to obtain the extent of an ellipse. Then, the
+       extent can be fed directly into getRect() to obtain the
+       bounding rect.
+    */
+    __device__ void getEllipseExtent(const glm::vec4 &center,
+                                     const glm::vec4 &scale,
+                                     const glm::mat3 &rotate,
+                                     const glm::mat4 &projMat,
+                                     int width, int height,
+                                     glm::uvec2 &extent,
+                                     float &radius)
+    {
+        glm::mat4 units(scale.x, 0.0f, 0.0f, 1.0f,
+                        0.0f, scale.y, 0.0f, 1.0f,
+                        0.0f, 0.0f, scale.z, 1.0f,
+                        0.0f, 0.0f, 0.0f, 1.0f);
+        glm::mat4 goodRot(rotate);
+        goodRot[3][3] = 1.0f;
+        units = goodRot * units;
+        for (int i = 0; i < 4; i++)
+        {
+            units[i] += center;
+            units[i].w = 1.0f;
+        }
+        units = projMat * units;
+
+        glm::vec2 semiAxes(0.0f);
+        for (int i = 0; i < 4; i++)
+        {
+            float oneOverW = 1.0f / (0.001f + units[i].w);
+            units[i] *= oneOverW;
+        }
+        for (int i = 0; i < 3; i++)
+        {
+            glm::vec2 semi = units[i] - units[3];
+            float absSemiX = fabs(semi.x);
+            float absSemiY = fabs(semi.y);
+            semiAxes.x = glm::max(semiAxes.x, absSemiX);
+            semiAxes.y = glm::max(semiAxes.y, absSemiY);
+            radius = glm::max(radius, 4.0f * glm::max(absSemiX, absSemiY));
+        }
+        semiAxes = 2.0f * semiAxes;
+        extent = { semiAxes.x * width, semiAxes.y * height };
+    }
+
     __global__ void preprocessCUDA(int numGaussians, int shDims, int M,
                                    const glm::vec4 *means3D, // called "origPoints" in DGR
                                    const glm::vec4 *scales, // "DGR" refers to diff-gaussian-rasterization
@@ -419,6 +489,7 @@ namespace gscuda
                                    const float *cov3DPrecomp,
                                    const float *colorsPrecomp,
                                    const float *viewMatrix,
+                                   const float *perspectiveMatrix,
                                    const float *projMatrix,
                                    const glm::vec3 *camPos,
                                    int width, int height,
@@ -430,14 +501,15 @@ namespace gscuda
                                    float *cov3Ds,
                                    glm::vec3 *rgb,
                                    glm::vec4 *conicOpacity,
-				   gs::MathematicalEllipsoid *ellipsoids,
-				   gs::MathematicalEllipse *ellipses,
+                                   gs::MathematicalEllipsoid *ellipsoids,
+                                   gs::MathematicalEllipse *ellipses,
                                    const dim3 grid,
                                    uint32_t *tilesTouched,
                                    bool prefiltered,
                                    glm::ivec2 *rects,
                                    glm::vec3 boxMin,
                                    glm::vec3 boxMax,
+                                   float *compositeBuffer,
                                    ForwardParams params)
     {
         namespace cg = cooperative_groups;
@@ -463,8 +535,8 @@ namespace gscuda
 
         // 2.1. TODO: normally there should be a bounding box check here. But we have not supplied a bounding box (well actually we had, its just meaningless)
         //            so we'll just skip here.
-	depths[idx] = projected.z;
-	
+        depths[idx] = projected.z;
+
         // 3. If covariance matrices are precomputed, use them; otherwise we do it ourselves
         if (!params.ellipseApprox)
         {
@@ -527,137 +599,98 @@ namespace gscuda
             // Inverted covariance and conic opacity
             conicOpacity[idx] = glm::vec4(conic.x, conic.y, conic.z, opacities[idx]);
             tilesTouched[idx] = (rectMax.x - rectMin.x) * (rectMax.y - rectMin.y);
-	}
+        }
         else
-	{
-	    // TODO: ellipse approximation here
-	    // The view matrix is the *transposed* matrix, which can
-	    // be interpreted as:
-	    // 1. Row first: this is a row-first matrix.
-	    // 2. Actual transformation: those are the *real* axes
-	    // defining the system.
-	    // In which case, another transpose is not
-	    // necessary. Though, we have to obtain the correct front
-	    // vector. 
-	    glm::mat3 normAxes = glm::mat3(viewMatrix[2], viewMatrix[6], viewMatrix[10],
-					   viewMatrix[0], viewMatrix[4], viewMatrix[8],
-					   viewMatrix[1], viewMatrix[5], viewMatrix[9]);
-	    // Please, god, have mercy...
-	    // printf("%f %f %f %f\n%f %f %f %f\n%f %f %f %f\n%f %f %f %f\n",
-	    // 	   viewMatrix[0], viewMatrix[1], viewMatrix[2], viewMatrix[3],
-	    // 	   viewMatrix[4], viewMatrix[5], viewMatrix[6], viewMatrix[7],
-	    // 	   viewMatrix[8], viewMatrix[9], viewMatrix[10], viewMatrix[11],
-	    // 	   viewMatrix[12], viewMatrix[13], viewMatrix[14], viewMatrix[15]);
+        {
+            glm::mat3 normAxes = glm::mat3(viewMatrix[2], viewMatrix[6], viewMatrix[10],
+                                           viewMatrix[0], viewMatrix[4], viewMatrix[8],
+                                           viewMatrix[1], viewMatrix[5], viewMatrix[9]);
+            // Please, god, have mercy...
+            // printf("%f %f %f %f\n%f %f %f %f\n%f %f %f %f\n%f %f %f %f\n",
+            //     viewMatrix[0], viewMatrix[1], viewMatrix[2], viewMatrix[3],
+            //     viewMatrix[4], viewMatrix[5], viewMatrix[6], viewMatrix[7],
+            //     viewMatrix[8], viewMatrix[9], viewMatrix[10], viewMatrix[11],
+            //     viewMatrix[12], viewMatrix[13], viewMatrix[14], viewMatrix[15]);
 
-	    // 2. define image plane constant
-	    glm::vec3 planeCenter = *camPos + params.ellipseApproxFocalDist * normAxes[0];
-	    const float planeConstant = glm::dot(planeCenter, normAxes[0]);
-	    const float projectedDistance = planeConstant -
-		glm::dot(*camPos, normAxes[0]);
+            // 2. define image plane constant
+            glm::vec3 planeCenter = *camPos + params.ellipseApproxFocalDist * normAxes[0];
+            const float planeConstant = glm::dot(planeCenter, normAxes[0]);
+            const float projectedDistance = planeConstant -
+                glm::dot(*camPos, normAxes[0]);
 
-	    // 3. turn the ellipsoid into coefficients.
-	    gs::MathematicalEllipsoid ellipsoid;
-	    ellipsoidFromGaussian(ellipsoid, quatToMat(rotations[idx]),
-				  scales[idx],
-				  means3D[idx]);
+            // 3. turn the ellipsoid into coefficients.
+            gs::MathematicalEllipsoid ellipsoid;
+            glm::mat3 rotMat = quatToMat(rotations[idx]);
+            ellipsoidFromGaussian(ellipsoid, rotMat,
+                                  scales[idx],
+                                  means3D[idx]);
 
-	    gs::MathematicalEllipse ellipse;
-	    projectEllipsoid(ellipse, ellipsoid, *camPos,
-			     normAxes, projectedDistance);
-	    if (ellipse.degenerate)
-	    {
-		return;
-	    }
-
-	    // We also need to set rects. However, rects are
-	    // relatively easy to configure in our case; since all we
-	    // need to do is get to know the two axes of the
-	    // ellipse. This still remains to be seen though.
-	    ellipsoids[idx] = ellipsoid;
-	    ellipses[idx] = ellipse;
-
-	    // Obtain semi-axes for coarse ellipse rect
-	    float radius = 1.0f / sqrtf(glm::max(ellipse.A[0][0], ellipse.A[1][1]));
-	    radius *= glm::max(width, height);
-
-	    glm::vec2 pointImage = (glm::vec2(projected) * 0.5f + 0.5f) * glm::vec2(width, height);
-            glm::uvec2 rectMin, rectMax;
-
-            // 6. Calculate what rects are we in... maybe
-            // if (rects == nullptr)
-            // {
-            //     getRect(pointImage, radius, rectMin, rectMax, grid);
-            // }
-            // else
-            // {
-	    // 	const glm::vec2 pseudoExtent = glm::vec2(1.0f / sqrtf(fabs(ellipse.A[0][0])), 1.0f / sqrtf(fabs(ellipse.A[1][1])));
-            //     const glm::ivec2 myRect = glm::ivec2((int) pseudoExtent.x * width, (int) pseudoExtent.y * height);
-            //     rects[idx] = myRect;
-            //     getRect(pointImage, myRect, rectMin, rectMax, grid);
-            // }
-
-	    // === DEBUG REGION !!! === //
-	    const float *cov3D = nullptr;
-            if (cov3DPrecomp)
-            {
-                cov3D = &cov3DPrecomp[idx * 6];
-            }
-            else
-            {
-                computeCov3D(glm::vec3(scales[idx]), scaleModifier, rotations[idx], &cov3Ds[idx * 6]);
-                cov3D = &cov3Ds[idx * 6];
-            }
-            // 4. TODO: MAGIC 1: compute screen space covariance matrix
-            glm::vec3 cov = computeCov2D(means3D[idx], focalDist, tanFOVx, tanFOVy, cov3D, viewMatrix);
-
-            // 4.1. Invert covariance (what is happening here???)
-            float det = cov.x * cov.z - cov.y * cov.y;
-            if (det == 0.0f)
-            {
-                return;
-            }
-            float detInv = 1.0f / det;
-            glm::vec3 conic = { cov.z * detInv, -cov.y * detInv, cov.x * detInv };
-
-            // 5. Compute extent in screen space.
-            float mid = 0.5f * (cov.x + cov.z);
-            float lambda1 = mid + sqrtf(glm::max(0.1f, mid * mid - det));
-            float lambda2 = mid - sqrtf(glm::max(0.1f, mid * mid - det));
-            float myRadius = ceil(3.0f * sqrtf(glm::max(lambda1, lambda2)));
-
-            // 6. Calculate what rects are we in... maybe
-            if (rects == nullptr)
-            {
-                getRect(pointImage, myRadius, rectMin, rectMax, grid);
-            }
-            else
-            {
-                const glm::ivec2 myRect = glm::ivec2((int) ceil(3.0f * sqrtf(cov.x)), (int) ceil(3.0f * cov.z));
-                rects[idx] = myRect;
-                getRect(pointImage, myRect, rectMin, rectMax, grid);
-            }
-            if ((rectMax.x - rectMin.x) * (rectMax.y - rectMin.y) == 0)
+            gs::MathematicalEllipse ellipse;
+            projectEllipsoid(ellipse, ellipsoid, *camPos,
+                             normAxes, projectedDistance);
+            if (ellipse.degenerate)
             {
                 return;
             }
 
-	    // === END DEBUG REGION === //
+            // We also need to set rects. However, rects are
+            // relatively easy to configure in our case; since all we
+            // need to do is get to know the two axes of the
+            // ellipse. This still remains to be seen though.
+            ellipsoids[idx] = ellipsoid;
+            ellipses[idx] = ellipse;
 
-	    if (!colorsPrecomp)
-	    {
-		const glm::vec3 &result = *reinterpret_cast<const glm::vec3 *>(&shs[idx * 48]);
+            // Obtain semi-axes for coarse ellipse rect
+            glm::vec2 pointImage = (glm::vec2(projected) * 0.5f + 0.5f) * glm::vec2(width, height);
+
+            float myRadius;
+            glm::uvec2 myRect, rectMin, rectMax;
+            getEllipseExtent(means3D[idx], scales[idx], rotMat, projMat,
+                             width, height, myRect, myRadius);
+            getRect(pointImage, myRect, rectMin, rectMax, grid);
+            size_t numTiles = (rectMax.x - rectMin.x) * (rectMax.y - rectMin.y);
+            if (numTiles == 0)
+            {
+                return;
+            }
+
+            if (!colorsPrecomp)
+            {
+                const glm::vec3 &result = *reinterpret_cast<const glm::vec3 *>(&shs[idx * 48]);
                 rgb[idx] = 0.5f + 0.4f * result; // Just use the bare bones SH first
-	    }
-	    
-	    tilesTouched[idx] = (rectMax.x - rectMin.x) * (rectMax.y - rectMin.y);
-	    // tilesTouched[idx] = 0;
-	    radii[idx] = myRadius;
-	    
-	    // Since conic & opacity is useless, might as well use
-	    // them to transfer some debug data.
-	    conicOpacity[idx] = glm::vec4(rectMin.x, rectMin.y, rectMax.x, opacities[idx]);
-	    means2D[idx] = pointImage;
-	}
+            }
+
+            rects[idx] = myRect;
+            tilesTouched[idx] = numTiles;
+            radii[idx] = myRadius;
+
+            // Since conic & opacity is useless, might as well use
+            // them to transfer some debug data.
+            if (idx == params.selected)
+            {
+		glm::uvec2 rectSpan(rectMax.x - rectMin.x + 1,
+				    rectMax.y - rectMin.y + 1);
+		blitRect(compositeBuffer,
+                         width, height,
+                         rectMin.x * BLOCK_W,
+                         rectMin.y * BLOCK_H,
+                         rectSpan.x * BLOCK_W,
+			 rectSpan.y * BLOCK_H,
+			 glm::vec3(1.0f, 1.0f, 0.0f));
+		blitRect(compositeBuffer,
+                         width, height,
+                         pointImage.x - myRect.x,
+                         pointImage.y - myRect.y,
+                         myRect.x * 2, myRect.y * 2, glm::vec3(1.0f, 0.0f, 0.0f));
+
+                conicOpacity[idx].x = myRect.x;
+                conicOpacity[idx].y = myRect.y;
+                printf("%llu %d %d %d %d %d %d\n", numTiles, rectMin.x, rectMin.y, rectMax.x, rectMax.y,
+                       myRect.x, myRect.y);
+            }
+            conicOpacity[idx].a = opacities[idx];
+            means2D[idx] = pointImage;
+        }
     }
 
     /**
@@ -709,6 +742,7 @@ namespace gscuda
                     const float *conv3DPrecomp,
                     const float *colorsPrecomp,
                     const float *viewMatrix,
+                    const float *perspectiveMatrix,
                     const float *projMatrix,
                     const glm::vec3 *camPos,
                     int width, int height,
@@ -720,26 +754,28 @@ namespace gscuda
                     float *cov3Ds,
                     glm::vec3 *rgb,
                     glm::vec4 *conicOpacity,
-		    gs::MathematicalEllipsoid *ellipsoids,
-		    gs::MathematicalEllipse *ellipses,
+                    gs::MathematicalEllipsoid *ellipsoids,
+                    gs::MathematicalEllipse *ellipses,
                     const dim3 grid,
                     uint32_t *tilesTouched,
                     bool prefiltered,
                     glm::ivec2 *rects,
                     glm::vec3 boxMin,
                     glm::vec3 boxMax,
+                    float *compositeBuffer,
                     ForwardParams params)
     {
         preprocessCUDA<<<(numGaussians + 255) / 256, 256>>>(numGaussians, shDims, M,
                                                             means3D, scales, scaleModifier,
                                                             rotations, opacities, shs, clamped,
                                                             conv3DPrecomp, colorsPrecomp,
-                                                            viewMatrix, projMatrix, camPos,
-                                                            width, height, tanFOVx, tanFOVy, focalDist,
+                                                            viewMatrix, perspectiveMatrix, projMatrix,
+                                                            camPos, width, height,
+                                                            tanFOVx, tanFOVy, focalDist,
                                                             radii, means2D, depths, cov3Ds, rgb, conicOpacity,
-							    ellipsoids, ellipses, grid,
-							    tilesTouched, prefiltered, rects,
-                                                            boxMin, boxMax, params);
+                                                            ellipsoids, ellipses, grid,
+                                                            tilesTouched, prefiltered, rects,
+                                                            boxMin, boxMax, compositeBuffer, params);
     }
 
     /**
@@ -865,6 +901,24 @@ namespace gscuda
         }
     }
 
+    __global__ void compositeCUDA(int width, int height, float *bottom, float *top)
+    {
+        namespace cg = cooperative_groups;
+        int idx = cg::this_grid().thread_rank();
+
+        // Trivial composition
+        const size_t stride = width * height;
+        bottom[idx + stride * 0] = glm::min(bottom[idx + stride * 0] + top[idx + stride * 0], 1.0f);
+        bottom[idx + stride * 1] = glm::min(bottom[idx + stride * 1] + top[idx + stride * 1], 1.0f);
+        bottom[idx + stride * 2] = glm::min(bottom[idx + stride * 2] + top[idx + stride * 2], 1.0f);
+    }
+
+    void composite(int width, int height, float *bottom, float *top)
+    {
+        dim3 blocks = { (uint32_t) width, (uint32_t) height, 1 };
+        compositeCUDA<<<blocks, 1>>>(width, height, bottom, top);
+    }
+
     inline __device__ float fastcos(float x)
     {
         constexpr float tp = 1.0f /(2.0f * 3.14f);
@@ -895,7 +949,7 @@ namespace gscuda
                                const glm::vec2 * __restrict__ means2D,
                                const glm::vec3 * __restrict__ features, // "colors"
                                const glm::vec4 * __restrict__ conicOpacities,
-			       const gs::MathematicalEllipse * __restrict__ ellipses,
+                               const gs::MathematicalEllipse * __restrict__ ellipses,
                                float * __restrict__ finalT, // "accumAlpha"
                                uint32_t * __restrict__ nContrib,
                                const glm::vec3 * __restrict__ background,
@@ -924,15 +978,15 @@ namespace gscuda
         int rounds = (range.y - range.x + blockSize - 1) / blockSize;
         int work = range.y - range.x;
 
-	// if (block.thread_rank() == 0 && work != 0)
-	// {
-	//     printf("My pixels: %d, %d - %d, %d. Work: %d.\n", pixMin.x, pixMin.y, pixMax.x, pixMax.y, work);
-	// }
+        // if (block.thread_rank() == 0 && work != 0)
+        // {
+        //     printf("My pixels: %d, %d - %d, %d. Work: %d.\n", pixMin.x, pixMin.y, pixMax.x, pixMax.y, work);
+        // }
 
         __shared__ int32_t collectedIds[blockSize];
-	__shared__ glm::vec2 collectedXYs[blockSize];
+        __shared__ glm::vec2 collectedXYs[blockSize];
         __shared__ glm::vec4 collectedConicOpacities[blockSize];
-	__shared__ gs::MathematicalEllipse collectedEllipses[blockSize];
+        __shared__ gs::MathematicalEllipse collectedEllipses[blockSize];
         __shared__ glm::vec3 collectedColors[blockSize];
 
         float accumAlpha = 1.0f;
@@ -963,7 +1017,7 @@ namespace gscuda
                 collectedXYs[block.thread_rank()] = means2D[collId];
                 collectedConicOpacities[block.thread_rank()] = conicOpacities[collId];
                 collectedColors[block.thread_rank()] = features[collId];
-		collectedEllipses[block.thread_rank()] = ellipses[collId];
+                collectedEllipses[block.thread_rank()] = ellipses[collId];
             }
             /**
              * The whole block now syncs. Note, we don't really need this procedure, since we can fetch them directly from the block (I think.)
@@ -983,74 +1037,74 @@ namespace gscuda
                 contributor++;
 
                 float alpha = 0.0f;
-		if (forwardParams.ellipseApprox)
-		{
-		    // 1. We don't need to evaluate delta, not
-		    // actually. Transform pix to NDC.
-		    glm::vec2 pixNDC = glm::vec2((float) pix.x / width, (float) pix.y / height);
-		    pixNDC = pixNDC * 2.0f - 1.0f;
-		    float aspect = (float) width / height;
-		    pixNDC.x *= aspect;
+                if (forwardParams.ellipseApprox)
+                {
+                    // 1. We don't need to evaluate delta, not
+                    // actually. Transform pix to NDC.
+                    glm::vec2 pixNDC = glm::vec2((float) pix.x / width, (float) pix.y / height);
+                    pixNDC = pixNDC * 2.0f - 1.0f;
+                    float aspect = (float) width / height;
+                    pixNDC.x *= aspect;
 
-		    // 2. Plug it into our ellipse formula.
-		    // float ellipseVal = -glm::dot(pixNDC, collectedEllipses[j].A * pixNDC) +
-		    // 	glm::dot(pixNDC, collectedEllipses[j].b) + collectedEllipses[j].c;
+                    // 2. Plug it into our ellipse formula.
+                    // float ellipseVal = -glm::dot(pixNDC, collectedEllipses[j].A * pixNDC) +
+                    //  glm::dot(pixNDC, collectedEllipses[j].b) + collectedEllipses[j].c;
 
-		    const gs::MathematicalEllipse &ellipse = collectedEllipses[j];
-		    float ellipseVal = (ellipse.A[0][0] * pixNDC.x + ellipse.A[1][0] * pixNDC.y) * pixNDC.x +
-			(ellipse.A[0][1] * pixNDC.x + ellipse.A[1][1] * pixNDC.y) * pixNDC.y +
-			ellipse.b[0] * pixNDC.x + ellipse.b[1] * pixNDC.y + ellipse.c;
-		    ellipseVal = -ellipseVal;
+                    const gs::MathematicalEllipse &ellipse = collectedEllipses[j];
+                    float ellipseVal = (ellipse.A[0][0] * pixNDC.x + ellipse.A[1][0] * pixNDC.y) * pixNDC.x +
+                        (ellipse.A[0][1] * pixNDC.x + ellipse.A[1][1] * pixNDC.y) * pixNDC.y +
+                        ellipse.b[0] * pixNDC.x + ellipse.b[1] * pixNDC.y + ellipse.c;
+                    ellipseVal = -ellipseVal;
 
-		    if (ellipseVal > 0.0f)
-		    {
-			continue;
-		    }
-		    // alpha = -ellipseVal *
-		    // collectedConicOpacities[j].w;
-		    alpha = 0.5f * collectedConicOpacities[j].w;
-		}
-		else
-		{
-		    const glm::vec2 &screenSpace = collectedXYs[j];
-		    glm::vec2 delta = screenSpace - glm::vec2(pix);
-		    glm::vec4 conicOpacity = collectedConicOpacities[j];
+                    if (ellipseVal > 0.0f)
+                    {
+                        continue;
+                    }
+                    // alpha = -ellipseVal *
+                    // collectedConicOpacities[j].w;
+                    alpha = 0.5f * collectedConicOpacities[j].w;
+                }
+                else
+                {
+                    const glm::vec2 &screenSpace = collectedXYs[j];
+                    glm::vec2 delta = screenSpace - glm::vec2(pix);
+                    glm::vec4 conicOpacity = collectedConicOpacities[j];
 
-		    if (!forwardParams.cosineApprox)
-		    {
-			// "The alpha decays exponentially from the Gaussian center." I've read that somewhere in the paper. May not be
-			// completely the same though. Well, it was either in paper or in code.
-			// TODO: I have no idea what this equation means. SIBR explanation:
-			// Resample using conic matrix (cf. "Surface Splatting" by Zwicker et al., 2001)
-			float power = -0.5f * (conicOpacity.x * delta.x * delta.x + conicOpacity.z * delta.y * delta.y) - conicOpacity.y * delta.x * delta.y;
-			if (power > 0.0f)
-			{
-			    continue; // ?????
-			}
+                    if (!forwardParams.cosineApprox)
+                    {
+                        // "The alpha decays exponentially from the Gaussian center." I've read that somewhere in the paper. May not be
+                        // completely the same though. Well, it was either in paper or in code.
+                        // TODO: I have no idea what this equation means. SIBR explanation:
+                        // Resample using conic matrix (cf. "Surface Splatting" by Zwicker et al., 2001)
+                        float power = -0.5f * (conicOpacity.x * delta.x * delta.x + conicOpacity.z * delta.y * delta.y) - conicOpacity.y * delta.x * delta.y;
+                        if (power > 0.0f)
+                        {
+                            continue; // ?????
+                        }
 
-			// Oh wait, here it is.
-			// Eq. (2) from 3D Gaussian splatting paper.
-			// Obtain alpha by multiplying with Gaussian opacity
-			// and its exponential falloff from mean.
-			// Avoid numerical instabilities (see paper appendix).
-			alpha = exp(power);
+                        // Oh wait, here it is.
+                        // Eq. (2) from 3D Gaussian splatting paper.
+                        // Obtain alpha by multiplying with Gaussian opacity
+                        // and its exponential falloff from mean.
+                        // Avoid numerical instabilities (see paper appendix).
+                        alpha = exp(power);
 
-			if (forwardParams.debugCosineApprox)
-			{
-			    collectedColors[j] = glm::vec3(delta.x, delta.y, fabs(delta.x * delta.x));
-			}
-		    }
-		    else
-		    {
-			float coeff = conicOpacity.x * delta.x * delta.x + conicOpacity.z * delta.y * delta.y + 2.0f * conicOpacity.y * delta.x * delta.y;
-			if (coeff < 0.0f)
-			{
-			    continue;
-			}
-			alpha = approxNorm2(coeff);
-		    }
-		    alpha = glm::min(0.99f, conicOpacity.w * alpha);
-		}
+                        if (forwardParams.debugCosineApprox)
+                        {
+                            collectedColors[j] = glm::vec3(delta.x, delta.y, fabs(delta.x * delta.x));
+                        }
+                    }
+                    else
+                    {
+                        float coeff = conicOpacity.x * delta.x * delta.x + conicOpacity.z * delta.y * delta.y + 2.0f * conicOpacity.y * delta.x * delta.y;
+                        if (coeff < 0.0f)
+                        {
+                            continue;
+                        }
+                        alpha = approxNorm2(coeff);
+                    }
+                    alpha = glm::min(0.99f, conicOpacity.w * alpha);
+                }
 
                 if (alpha < 1.0f / 255.0f)
                 {
@@ -1092,7 +1146,7 @@ namespace gscuda
                 const glm::vec2 *means2D,
                 const glm::vec3 *colors,
                 const glm::vec4 *conicOpacities,
-		const gs::MathematicalEllipse *ellipses,
+                const gs::MathematicalEllipse *ellipses,
                 float *finalT, // "accumAlpha"
                 uint32_t *nContrib,
                 const glm::vec3 *background,
@@ -1101,12 +1155,13 @@ namespace gscuda
     {
         renderCUDA<<<grid, block>>>(ranges, pointList, width, height,
                                     means2D, colors, conicOpacities, ellipses,
-				    finalT, nContrib, background, outColor, forwardParams);
+                                    finalT, nContrib, background, outColor, forwardParams);
     }
 
     void forward(std::function<char *(size_t)> geometryBuffer,
                  std::function<char *(size_t)> binningBuffer,
                  std::function<char *(size_t)> imageBuffer,
+                 std::function<char *(size_t)> compositeLayerBuffer,
                  int numGaussians, int shDims, int M,
                  const float *background, // CUDA vec3
                  int width, int height,
@@ -1119,6 +1174,7 @@ namespace gscuda
                  const float *rotations, // CUDA per-gaussian rotation
                  const float *cov3DPrecomp, // Unused; precomputed 3D covariance matrices
                  const float *viewMatrix, // CUDA mat4
+                 const float *perspectiveMatrix, // CUDA mat4
                  const float *projMatrix, // CUDA mat4: perspective * view
                  const float *camPos, // CUDA vec3
                  float tanFOVx, float tanFOVy, // for focal length calculation
@@ -1145,8 +1201,16 @@ namespace gscuda
         dim3 block = { BLOCK_W, BLOCK_H, 1 };
 
         size_t imageBufferSize = required<ImageState>(width * height);
-        char *imBuffer = imageBuffer(imageBufferSize + 128);
+        char *imBuffer = imageBuffer(imageBufferSize + 228);
         ImageState imState = ImageState::fromChunk(imBuffer, width * height);
+
+        // Unlike imBuffer, which records per-pixel information,
+        // composite buffer acts as a separate pass, and logs on
+        // graphical debug information.
+        size_t compositeBufferSize = width * height * 3 * sizeof(float);
+        char *compositeBufferRaw = compositeLayerBuffer(compositeBufferSize + 128);
+        cudaMemset(compositeBufferRaw, 0, compositeBufferSize);
+        float *compositeBuffer = reinterpret_cast<float *>(compositeBufferRaw);
 
         constexpr float numericMin = std::numeric_limits<float>::lowest();
         constexpr float numericMax = std::numeric_limits<float>::max();
@@ -1164,7 +1228,8 @@ namespace gscuda
                    geomState.clamped,
                    cov3DPrecomp,
                    colorsPrecomp,
-                   viewMatrix, projMatrix, (glm::vec3 *) camPos,
+                   viewMatrix, perspectiveMatrix, projMatrix,
+                   (glm::vec3 *) camPos,
                    width, height,
                    focalDist,
                    tanFOVx, tanFOVy,
@@ -1174,13 +1239,14 @@ namespace gscuda
                    geomState.cov3D,
                    geomState.rgb,
                    geomState.conicOpacity,
-		   geomState.ellipsoids,
-		   geomState.ellipses,
+                   geomState.ellipsoids,
+                   geomState.ellipses,
                    tileGrid,
                    geomState.tilesTouched,
                    prefiltered,
                    (glm::ivec2 *) rects,
                    minn, maxx,
+                   compositeBuffer,
                    forwardParams);
 
         // Preprocessed; next up get the full list of touched tiles
@@ -1190,6 +1256,8 @@ namespace gscuda
         // Pointless to go any farther
         if (geomState.numRendered == 0)
         {
+            cudaMemset(outColor, 0, compositeBufferSize);
+            composite(width, height, outColor, compositeBuffer);
             return;
         }
 
@@ -1203,8 +1271,8 @@ namespace gscuda
         duplicateWithKeys<<<(numGaussians + 255 / 256), 256>>>(numGaussians, geomState.means2D, geomState.depths, geomState.pointOffsets,
                                                                binningState.pointListKeysUnsorted, binningState.pointListUnsorted,
                                                                radii, tileGrid, (glm::ivec2 *) rects);
-	CHECK_CUDA_ERROR(cudaDeviceSynchronize());
-	
+        CHECK_CUDA_ERROR(cudaDeviceSynchronize());
+
         int highestBit = getHigherMsb(tileGrid.x * tileGrid.y);
 
         // Sort Gaussians
@@ -1212,22 +1280,25 @@ namespace gscuda
                                         binningState.pointListKeysUnsorted, binningState.pointListKeys,
                                         binningState.pointListUnsorted, binningState.pointList,
                                         geomState.numRendered, 0, highestBit + 32);
-	CHECK_CUDA_ERROR(cudaDeviceSynchronize());
-	
+        CHECK_CUDA_ERROR(cudaDeviceSynchronize());
+
         // Determine tile ranges
         cudaMemset(imState.ranges, 0, sizeof(glm::uvec2) * width * height);
         identifyTileRanges<<<(geomState.numRendered + 255) / 256, 256>>>(geomState.numRendered, binningState.pointListKeys, imState.ranges);
-	CHECK_CUDA_ERROR(cudaDeviceSynchronize());
+        CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
         const glm::vec3 *colorsPtr = colorsPrecomp ? (const glm::vec3 *) colorsPrecomp : geomState.rgb;
         render(tileGrid, block,
                imState.ranges, binningState.pointList,
                width, height,
                geomState.means2D, colorsPtr, geomState.conicOpacity,
-	       geomState.ellipses,
+               geomState.ellipses,
                imState.accumAlpha, imState.nContrib,
                (const glm::vec3 *) background,
                outColor, forwardParams);
-	CHECK_CUDA_ERROR(cudaDeviceSynchronize());
+        CHECK_CUDA_ERROR(cudaDeviceSynchronize());
+        
+        composite(width, height, outColor, compositeBuffer);
+        CHECK_CUDA_ERROR(cudaDeviceSynchronize());
     }
 };
