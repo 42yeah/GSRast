@@ -459,6 +459,7 @@ namespace gscuda
         }
         units = projMat * units;
 
+	radius = 0.0f;
         glm::vec2 semiAxes(0.0f);
         for (int i = 0; i < 4; i++)
         {
@@ -476,6 +477,7 @@ namespace gscuda
         }
         semiAxes = 2.0f * semiAxes;
         extent = { semiAxes.x * width, semiAxes.y * height };
+	radius = glm::max(width, height) * radius;
     }
 
     __global__ void preprocessCUDA(int numGaussians, int shDims, int M,
@@ -580,6 +582,27 @@ namespace gscuda
                 const glm::ivec2 myRect = glm::ivec2((int) ceil(3.0f * sqrtf(cov.x)), (int) ceil(3.0f * cov.z));
                 rects[idx] = myRect;
                 getRect(pointImage, myRect, rectMin, rectMax, grid);
+
+		if (idx == params.selected)
+		{
+		    glm::uvec2 rectSpan(rectMax.x - rectMin.x + 1,
+					rectMax.y - rectMin.y + 1);
+		    blitRect(compositeBuffer,
+			     width, height,
+			     rectMin.x * BLOCK_W,
+			     rectMin.y * BLOCK_H,
+			     rectSpan.x * BLOCK_W,
+			     rectSpan.y * BLOCK_H,
+			     glm::vec3(1.0f, 1.0f, 0.0f));
+		    blitRect(compositeBuffer,
+			     width, height,
+			     pointImage.x - myRect.x,
+			     pointImage.y - myRect.y,
+			     myRect.x * 2, myRect.y * 2, glm::vec3(1.0f, 0.0f, 0.0f));
+
+		    printf("%d %d %d %d %d %d %d\n", (rectMax.x - rectMin.x) * (rectMax.y - rectMin.y), rectMin.x, rectMin.y, rectMax.x, rectMax.y,
+			   myRect.x, myRect.y);
+		}
             }
             if ((rectMax.x - rectMin.x) * (rectMax.y - rectMin.y) == 0)
             {
@@ -662,7 +685,7 @@ namespace gscuda
 
             rects[idx] = myRect;
             tilesTouched[idx] = numTiles;
-            radii[idx] = myRadius;
+            radii[idx] = 1;
 
             // Since conic & opacity is useless, might as well use
             // them to transfer some debug data.
@@ -818,7 +841,7 @@ namespace gscuda
         {
             getRect(means2D[idx], rects[idx], rectMin, rectMax, grid);
         }
-
+	
         // Later during sorting:
         // Tile IDs will be in order
         // Same tile IDs will have depths properly sorted (so long as depth is positive, comparison is correct)
@@ -1015,7 +1038,7 @@ namespace gscuda
                 int collId = pointList[range.x + progress];
                 collectedIds[block.thread_rank()] = collId;
                 collectedXYs[block.thread_rank()] = means2D[collId];
-                collectedConicOpacities[block.thread_rank()] = conicOpacities[collId];
+		collectedConicOpacities[block.thread_rank()] = conicOpacities[collId];
                 collectedColors[block.thread_rank()] = features[collId];
                 collectedEllipses[block.thread_rank()] = ellipses[collId];
             }
@@ -1268,7 +1291,7 @@ namespace gscuda
         BinningState binningState = BinningState::fromChunk(binningBuf, geomState.numRendered);
 
         // Now we need to produce the keys
-        duplicateWithKeys<<<(numGaussians + 255 / 256), 256>>>(numGaussians, geomState.means2D, geomState.depths, geomState.pointOffsets,
+	duplicateWithKeys<<<(numGaussians + 255 / 256), 256>>>(numGaussians, geomState.means2D, geomState.depths, geomState.pointOffsets,
                                                                binningState.pointListKeysUnsorted, binningState.pointListUnsorted,
                                                                radii, tileGrid, (glm::ivec2 *) rects);
         CHECK_CUDA_ERROR(cudaDeviceSynchronize());
