@@ -255,7 +255,14 @@ namespace gscuda
 	ellip.c = glm::dot(glm::vec3(center), prod) - 1.0f;
 
 	// Normalize the lot - we will need an efficient way for the
-	// normalization.
+	// normalization. Normalization is required because numerical
+	// instabilities will fuck our ellipsoid three times over (and
+	// therefore, the projected ellipse.) One way, obviously, is
+	// to use double precision; however, are we really stepping
+	// that low? So without further ado, three methods to prevent
+	// instabilities:
+	// 1. Finding the minimum value and normalizing it to 1. This
+	// prevents the minimum value from degenerating.
 	float minVal = std::numeric_limits<float>::max();
 	float maxVal = std::numeric_limits<float>::lowest();
 	float avgVal = 0.0f;
@@ -279,7 +286,7 @@ namespace gscuda
 	maxVal = maxVal < fabsC ? fabsC : maxVal;
 	avgVal = sqrtf(avgVal / 13.0f);
 
-	float scale = 1.0f / avgVal;
+	float scale = 10000.0f / maxVal;
 	ellip.A *= scale; // make the ellipses slightly bigger
 	ellip.b *= scale;
 	ellip.c *= scale;
