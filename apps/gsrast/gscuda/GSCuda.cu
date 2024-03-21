@@ -21,11 +21,11 @@
 #define SCREEN_SPACE_PC_BLOCKS_H 128
 #define BLOCK_W 16
 #define BLOCK_H 16
-#define ADAPTIVE_FUNC_SIZE 512
-#define AT_HASH_CONSTANT 101
+#define ADAPTIVE_FUNC_SIZE 5
+#define IMPACT_ALPHA 0.2f
 
 #define TEST_TILE(xx, yy) (block.group_index().x == xx && block.group_index().y == yy \
-			 && block.thread_rank() == 0)
+                         && block.thread_rank() == 0)
 
 
 namespace gscuda 
@@ -990,11 +990,11 @@ namespace gscuda
         return a * a * a;
     }
 
-    __host__ __device__ void constructAdaptiveF(const float *depths,
-                                                const uint32_t *ids,
-                                                const glm::uvec2 &range,
-                                                MiniNode *nodes, size_t numNodes,
-                                                int &head, int &tail)
+    /**
+       Initialize the adaptive function.
+    */
+    __host__ __device__ void initAdaptiveF(
+        MiniNode *nodes, size_t numNodes, int &head, int &tail)
     {
         for (int i = 0; i < numNodes; i++)
         {
@@ -1005,100 +1005,95 @@ namespace gscuda
         }
         head = 0;
         tail = numNodes - 1;
-        for (int i = range.x; i < range.y; i++)
-        {
-            int nodeIdx = head;
-            const uint32_t id = ids[i];
-            const float d = depths[id] + 0.00001f; // slightly deeper so
-                                                 // as to not count self
+    }
 
-            while (nodes[nodeIdx].depth < d && nodeIdx != -1)
+
+    /**
+       Insert one member into the adaptive visibility function.
+       The visibility function will keep its order, so relax.
+    */
+    __host__ __device__ void insertAdaptiveF(
+        MiniNode *nodes, size_t numNodes,
+        float depth, uint32_t id, float alpha, const glm::vec3 &color,
+        int &head, int &tail)
+    {
+        if (alpha < IMPACT_ALPHA)
+        {
+            // We only keep record of the "heavy hitters".
+            // TODO: aliasing problems will arise from this. Maybe we
+            // only discard them when the linked list is utterly empty.
+            return;
+        }
+
+        int nodeIdx = head;
+        while (nodeIdx != -1 && nodes[nodeIdx].depth < depth)
+        {
+            nodeIdx = nodes[nodeIdx].next;
+        }
+        if (nodeIdx == -1)
+        {
+            if (alpha - nodes[tail].alpha > IMPACT_ALPHA)
             {
-                nodeIdx = nodes[nodeIdx].next;
+                nodes[tail].depth = depth;
+                nodes[tail].id = id;
+                nodes[tail].alpha = alpha;
+                nodes[tail].color = color;
             }
-            if (nodeIdx == -1)
+            return;
+        }
+
+        /**
+           If we are at the end, *and* we can impact the scene more
+           meaningfully, then we replace the one at the end
+           TODO: might lead to aliasing
+        */
+        if (nodes[nodeIdx].next == -1)
+        {
+            if (alpha - nodes[nodeIdx].alpha > IMPACT_ALPHA)
             {
-                continue;
-            }
-            // The node we are having (nodeIdx) is now farther into
-            // the camera than the current iterating node. That means
-            // we need to insert a new node in-place.
-            // 1. prev->next = new
-            // 2. new->next = this
-            // If there is no prev, that means what we have is the
-            // head. Update the head accordingly. If there is no next,
-            // that means we just replace it in-place.
-            if (nodes[nodeIdx].next == -1)
-            {
-                nodes[nodeIdx].depth = d;
+                nodes[nodeIdx].depth = depth;
                 nodes[nodeIdx].id = id;
-                continue;
+                nodes[nodeIdx].alpha = alpha;
+                nodes[nodeIdx].color = color;
             }
-            int newTail = nodes[tail].prev;
-            nodes[tail].depth = d;
-            nodes[tail].id = id;
-            if (nodes[nodeIdx].prev != -1)
-            {
-                nodes[nodes[nodeIdx].prev].next = tail;
-                nodes[tail].prev = nodes[nodeIdx].prev;
-            }
-            else
-            {
-                // There is no prev for the inserted. That means we
-                // become the new head, automatically.
-                nodes[tail].prev = -1;
-                head = tail;
-            }
-            nodes[tail].next = nodeIdx;
-            nodes[nodeIdx].prev = tail;
-            tail = newTail;
-            nodes[newTail].next = -1;
+            return;
         }
-    }
-
-    void constructAdaptiveFHost(const float *depths,
-                                const uint32_t *ids,
-                                const unsigned int *range,
-                                MiniNode *nodes, size_t numNodes,
-                                int &head, int &tail)
-    {
-        constructAdaptiveF(depths, ids,
-                           reinterpret_cast<const glm::uvec2 &>(*range),
-                           nodes, numNodes, head, tail);
-    }
-
-    __host__ __device__ int sampleAdaptiveF(MiniNode *nodes, size_t numNodes,
-                                                 int head, float depth)
-    {
-        int id = -1;
-        while (head != -1)
+        int newTail = nodes[tail].prev;
+        nodes[tail].depth = depth;
+        nodes[tail].id = id;
+        nodes[tail].alpha = alpha;
+        nodes[tail].color = color;
+        if (nodes[nodeIdx].prev != -1)
         {
-            if (depth < nodes[head].depth)
-            {
-                break;
-            }
-            id = nodes[head].id;
-            head = nodes[head].next;
+            nodes[nodes[nodeIdx].prev].next = tail;
+            nodes[tail].prev = nodes[nodeIdx].prev;
         }
-        return id;
+        else
+        {
+            // There is no prev for the inserted. That means we
+            // become the new head, automatically.
+            nodes[tail].prev = -1;
+            head = tail;
+        }
+        nodes[tail].next = nodeIdx;
+        nodes[nodeIdx].prev = tail;
+        tail = newTail;
+        nodes[newTail].next = -1;
     }
 
-    int sampleAdaptiveFHost(MiniNode *nodes, size_t numNodes,
-                            int head, float depth)
+    void initAdaptiveFHost(MiniNode *nodes, size_t numNodes, int &head, int &tail)
     {
-        return sampleAdaptiveF(nodes, numNodes, head, depth);
+        initAdaptiveF(nodes, numNodes, head, tail);
     }
 
-    __device__ float sampleTable(KeyValue *table, size_t tableSize, int index)
+    void insertAdaptiveFHost(
+        MiniNode *nodes, size_t numNodes,
+        float depth, uint32_t id, float alpha, const float *color,
+        int &head, int &tail)
     {
-	for (int i = 0; i < tableSize; i++)
-	{
-	    if (table[i].key == index)
-	    {
-		return table[i].value;
-	    }
-	}
-	return 0.0f;
+        insertAdaptiveF(
+            nodes, numNodes, depth, id, alpha, reinterpret_cast<const glm::vec3 &>(*color),
+            head, tail);
     }
 
     __device__ float obtainAlpha(
@@ -1218,104 +1213,14 @@ namespace gscuda
            The adaptive OIT visibility function.
         */
         __shared__ float collectedDepths[blockSize];
-        __shared__ MiniNode adaptiveF[ADAPTIVE_FUNC_SIZE];
-        __shared__ int adaptiveFHead, adaptiveFTail;
-        KeyValue atHashTable[ADAPTIVE_FUNC_SIZE];
-	int atHashTableSize = 0;
+        MiniNode adaptiveF[ADAPTIVE_FUNC_SIZE];
+        int adaptiveFHead, adaptiveFTail;
+        initAdaptiveF(adaptiveF, ADAPTIVE_FUNC_SIZE, adaptiveFHead, adaptiveFTail);
 
         float accumAlpha = 1.0f;
         uint32_t contributor = 0;
         uint32_t lastContributor = 0;
         glm::vec3 color = glm::vec3(0.0f);
-        glm::vec3 overflowColor = glm::vec3(0.0f);
-        int numOverflows = 0;
-
-        /**
-           Preprocess round: build the small linked list, and every
-           single thread build their own alpha decay values.
-
-           Adaptive OIT code here; one thread should construct a
-           memory-efficient tiny linked list.
-           Only one worker should do it; it traverses through the
-           whole depth & opacity array to construct a neat little
-           adaptiveFunction (the `adaptiveF` above.)
-        */
-        if (forwardParams.adaptiveOIT)
-        {
-            if (block.thread_rank() == 0)
-            {
-                constructAdaptiveF(depths, pointList, range,
-                                   adaptiveF, ADAPTIVE_FUNC_SIZE,
-                                   adaptiveFHead, adaptiveFTail);
-
-                // Question. Why do they have different uh head
-                // blocks? Although they are right next to each other?
-                // if ((block.group_index().x == 29 || block.group_index().x == 25) &&
-                //     block.group_index().y == 27 && block.thread_rank() == 0)
-                // {
-                //     int id = adaptiveF[adaptiveFHead].id;
-                //     printf("Block head: %d, depth: %f, visibility: %f, %d-%d\n",
-                //         adaptiveF[adaptiveFHead].id, depths[id],
-                //         atHashTable[id % AT_HASH_CONSTANT],
-                //         range.x, range.y);
-                //     // first off; is it the problem of the ranges?
-                //     for (int i = range.x; i < range.y; i++)
-                //     {
-                //      printf("%d: %d: %f\n", block.group_index().x,
-                //             pointList[i], depths[pointList[i]]);
-                //     }
-                // }
-            }
-            block.sync(); // This sucks; every thread is waiting for
-                          // ONE guy
-            // Iterate through the linked list we just made, and calc
-            // their alpha values
-            float alphaDecay = 1.0f;
-            int it = adaptiveFHead;
-            while (it != -1)
-            {
-                if (adaptiveF[it].id == -1) break;
-                const int id = adaptiveF[it].id;
-
-                gs::MathematicalEllipse ellipse = ellipses[id];
-                glm::vec4 conicOpacity = conicOpacities[id];
-                glm::vec2 screenSpace = means2D[id];
-                const float alpha = obtainAlpha(
-                    pix, width, height, ellipse, conicOpacity,
-                    screenSpace, forwardParams);
-                alphaDecay *= (1.0f - alpha);
-		atHashTable[atHashTableSize++] = { id, alphaDecay };
-		if (alphaDecay < 0.01f)
-		{
-		    break;
-		}
-                it = adaptiveF[it].next;
-            }
-
-	    if (TEST_TILE(20, 20))
-	    {
-		printf("AdaptiveF done. Range: %d %d\n", range.x, range.y);
-		int it = adaptiveFHead;
-		int numList = 0;
-		while (it != adaptiveFTail)
-		{
-		    printf("ID: %d, depth: %f, visibility: %f\n",
-			   adaptiveF[it].id, adaptiveF[it].depth,
-			   sampleTable(atHashTable,
-				       atHashTableSize,
-				       adaptiveF[it].id));
-		    if (adaptiveF[it].id == -1)
-		    {
-			break;
-		    }
-		    it = adaptiveF[it].next;
-		    numList++;
-		}
-		printf("#list: %d\n", numList);
-		
-
-	    }
-        }
 
         /**
          * The whole block will cooperate on fetching data and putting them into shared variables (faster this way)
@@ -1379,37 +1284,12 @@ namespace gscuda
 
                 if (forwardParams.adaptiveOIT)
                 {
-                    int id = sampleAdaptiveF(adaptiveF, ADAPTIVE_FUNC_SIZE,
-                                             adaptiveFHead, collectedDepths[j]);
-
-                    float visibility = 1.0f;
-                    if (id != -1)
-                    {
-                        visibility = sampleTable(atHashTable, atHashTableSize, id);
-                    }
-
-		    if (TEST_TILE(20, 20))
-		    {
-			printf("Actual id: %d, id: %d, tail? %d, alpha: %f, visibility: %f\n", collectedIds[j],
-			       id, (id == adaptiveF[adaptiveFTail].id) ? 1 : 0, alpha, visibility);
-		    }
-
-		    if (visibility < 0.01f)
-                    {
-                        continue;
-                    }
-
-                    alpha *= visibility;
-
-                    if (id != -1 && id == adaptiveF[adaptiveFTail].id)
-                    {
-                        overflowColor += collectedColors[j] * alpha;
-                        numOverflows++;
-                    }
-                    else
-                    {
-                        color += collectedColors[j] * alpha;
-                    }
+                    // Use premultiplied colors
+                    insertAdaptiveF(
+                        adaptiveF, ADAPTIVE_FUNC_SIZE,
+                        collectedDepths[j], collectedIds[j],
+                        alpha, alpha * collectedColors[j],
+                        adaptiveFHead, adaptiveFTail);
                 }
                 else
                 {
@@ -1434,9 +1314,21 @@ namespace gscuda
         // It is done. Write all things to output buffer
         if (inside)
         {
-            if (forwardParams.adaptiveOIT && numOverflows != 0)
+            if (forwardParams.adaptiveOIT)
             {
-                color += 0.5f * overflowColor;
+                /**
+                   If we are using adaptive OIT, then so far we have
+                   not calculated anything whatsoever; we are only
+                   starting the blend now.
+                */
+                int it = adaptiveFHead;
+                float visibility = 1.0f;
+                while (it != -1 && adaptiveF[it].id != -1)
+                {
+                    color += visibility * adaptiveF[it].color;
+                    visibility *= (1.0f - adaptiveF[it].alpha);
+                    it = adaptiveF[it].next;
+                }
             }
 
             finalT[pixId] = accumAlpha;

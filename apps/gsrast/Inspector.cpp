@@ -21,6 +21,7 @@
 #include <memory>
 #include <ctime>
 #include <ostream>
+#include <random>
 #include <string.h>
 #include <cuda_runtime.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -355,6 +356,33 @@ void Inspector::drawInspector()
 
             if (ImGui::CollapsingHeader("Debug"))
             {
+		if (ImGui::Button("Test adaptive OIT construction"))
+		{
+		    gscuda::MiniNode nodes[5];
+		    int head, tail;
+		    gscuda::initAdaptiveFHost(nodes, 5, head, tail);
+		    std::uniform_real_distribution<float> distrib;
+		    std::random_device dev;
+		    for (int i = 0; i < 1000; i++)
+		    {
+			int id = (int) (distrib(dev) * 10000000);
+			float depth = distrib(dev);
+			float alpha = powf(distrib(dev), 3.0f);
+			glm::vec3 color = glm::vec3(distrib(dev), distrib(dev), distrib(dev));
+			gscuda::insertAdaptiveFHost(nodes, 5, depth, id, alpha,
+						    &color[0], head, tail);
+		    }
+
+		    std::cout << "The done deal:" << std::endl;
+		    int it = head;
+		    while (it != -1)
+		    {
+			std::cout << nodes[it].depth << " " << nodes[it].alpha << " "
+				  << nodes[it].color.r << " " << nodes[it].color.g << " "
+				  << nodes[it].color.b << std::endl;
+			it = nodes[it].next;
+		    }
+		}
 		if (startTable())
 		{
 		    ImGuiIO &io = ImGui::GetIO();
@@ -371,54 +399,6 @@ void Inspector::drawInspector()
 
 		    endTable();
 		}
-		
-                if (ImGui::Button("Debug AdaptiveF construction"))
-                {
-                    constexpr size_t adaptiveFuncSize = 5;
-                    gscuda::MiniNode nodes[adaptiveFuncSize];
-                    const float depths[] = { 0.5f, 0.8f, 0.72f, 0.99f, 0.28f, 0.37f, 0.62f, 0.51f };
-                    const unsigned int ids[] = {
-                        15523,
-                        626242,
-                        152042,
-                        323251,
-                        678245,
-                        1,
-                        233343,
-                        777777
-                    };
-                    glm::uvec2 range = { 0, 8 };
-                    int head, tail;
-                    gscuda::constructAdaptiveFHost(
-                        depths,
-                        ids,
-                        &range[0],
-                        nodes,
-                        adaptiveFuncSize,
-                        head, tail);
-
-                    for (int i = 0; i < adaptiveFuncSize; i++)
-                    {
-                        std::cout << nodes[i].prev << "|" << nodes[i].next << "|"
-                                  << nodes[i].depth << "|" << nodes[i].id
-                                  << std::endl;
-                    }
-                    std::cout << "OR, according to the linked list:" << std::endl;
-                    int it = head;
-                    while (it != -1)
-                    {
-                        std::cout << nodes[it].prev << "|" << nodes[it].next << "|"
-                                  << nodes[it].depth << "|" << nodes[it].id
-                                  << std::endl;
-                        it = nodes[it].next;
-                    }
-
-                    std::cout << "Sampling: " << std::endl;
-                    std::cout << gscuda::sampleAdaptiveFHost(nodes, adaptiveFuncSize, head, 0.01f) << std::endl
-                              << gscuda::sampleAdaptiveFHost(nodes, adaptiveFuncSize, head, 0.5f) << std::endl
-                              << gscuda::sampleAdaptiveFHost(nodes, adaptiveFuncSize, head, 0.7f) << std::endl
-                              << gscuda::sampleAdaptiveFHost(nodes, adaptiveFuncSize, head, 0.99f) << std::endl;
-                }
             }
         }
     }

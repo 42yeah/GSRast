@@ -83,39 +83,16 @@ namespace gscuda
 	int id;
 	int prev;
 	int next;
+	float alpha;
+	glm::vec3 color;
     };
 
-    struct KeyValue
-    {
-	int key;
-	float value;
-    };
+    void initAdaptiveFHost(MiniNode *nodes, size_t numNodes, int &head, int &tail);
 
-    /**
-       Construct an adaptive OIT function. See:
-       https://www.intel.com/content/dam/develop/external/us/en/documents/37944-adaptive-transparency-hpg11.pdf
-       In our case, we will build a visibility function in the form of
-       a mini linked list in limited size (5), and sample it during
-       the course of the rendering.
-
-       The adaptiveF should be something like this:
-       0.1 | [-]0.5, 0.2 | [-]0.3, ...
-       And during the course of rendering, this will act as a CDF of
-       sorts. WARNING: the linked list size MUST be greater than 1!
-    */
-    void constructAdaptiveFHost(const float *depths,
-				const unsigned int *ids,
-				const unsigned int *range,
-				MiniNode *nodes, size_t numNodes,
-				int &head, int &tail);
-
-    /**
-       The adaptive visibility function becomes a simple linked list
-       traversal. I guess this can be mildly optimized. But I am not
-       going for it.
-    */
-    int sampleAdaptiveFHost(MiniNode *nodes, size_t numNodes,
-			    int head, float depth);
+    void insertAdaptiveFHost(
+	MiniNode *nodes, size_t numNodes,
+	float depth, uint32_t id, float alpha, const float *color,
+	int &head, int &tail);
 
     void render(const dim3 grid, const dim3 block,
                 const glm::uvec2 *ranges, const uint32_t *pointList,
