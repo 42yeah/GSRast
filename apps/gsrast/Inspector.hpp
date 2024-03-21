@@ -112,7 +112,16 @@ protected:
     void inspectEllipse(const char *key,
 			const gscuda::gs::MathematicalEllipse &ellipse);
 
+    /**
+       drawOverlay is split into two parts: inspector and
+       interfaces. Inspectors allows the inspection of various properties
+       of the scene (under different visualization modes.) Interfaces
+       allows the interfacing with the scene, for example, scene
+       manipulation, etc.
+    */
     void drawOverlay();
+    void drawInspector();
+    void drawInterfaces();
 
     GSRastWindow *_rastWindow;
     bool _demoWindowShown;

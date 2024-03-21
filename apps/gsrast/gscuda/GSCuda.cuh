@@ -30,11 +30,12 @@ namespace gscuda
 	float ellipseApproxFocalDist; // Focal distance to render the
 				      // approximated ellipses.
 	int selected;
+	int highlightBlockX, highlightBlockY;
     };
 
     /**
      * Drop-in replacement to rasterize points only. This is not different at all
-     * than glDrawArrays(0, P, GL_POINTS). 
+     * than glDrawArrays(0, P, GL_POINTS).
      */
     void forwardPoints(std::function<char *(size_t)> geometryBuffer,
                        std::function<char *(size_t)> binningBuffer,
@@ -61,7 +62,60 @@ namespace gscuda
                        float *boxMin, // Unused; bounding box I think
                        float *boxMax);
 
+    /**
+       Given *ONE* input axis (`axes[0]`), completes the rest
+       and fill them into the matrix. Note, the input matrix MUST be
+       incomplete. Or they WILL be overwritten!
+    */
     __host__ __device__ void completeAxes(float *axes);
+
+    /*
+      Implementation of a memory-continuous linked list.
+      Looks like this:
+
+      [0 | depth | alpha decay | next]
+      [1 | depth | alpha decay | next]
+      ...
+    */
+    struct MiniNode
+    {
+	float depth;
+	int id;
+	int prev;
+	int next;
+    };
+
+    struct KeyValue
+    {
+	int key;
+	float value;
+    };
+
+    /**
+       Construct an adaptive OIT function. See:
+       https://www.intel.com/content/dam/develop/external/us/en/documents/37944-adaptive-transparency-hpg11.pdf
+       In our case, we will build a visibility function in the form of
+       a mini linked list in limited size (5), and sample it during
+       the course of the rendering.
+
+       The adaptiveF should be something like this:
+       0.1 | [-]0.5, 0.2 | [-]0.3, ...
+       And during the course of rendering, this will act as a CDF of
+       sorts. WARNING: the linked list size MUST be greater than 1!
+    */
+    void constructAdaptiveFHost(const float *depths,
+				const unsigned int *ids,
+				const unsigned int *range,
+				MiniNode *nodes, size_t numNodes,
+				int &head, int &tail);
+
+    /**
+       The adaptive visibility function becomes a simple linked list
+       traversal. I guess this can be mildly optimized. But I am not
+       going for it.
+    */
+    int sampleAdaptiveFHost(MiniNode *nodes, size_t numNodes,
+			    int head, float depth);
 
     void render(const dim3 grid, const dim3 block,
                 const glm::uvec2 *ranges, const uint32_t *pointList,

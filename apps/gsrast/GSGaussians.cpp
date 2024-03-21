@@ -87,8 +87,10 @@ GSGaussians::GSGaussians(int width, int height, FirstPersonCamera::Ptr camera) :
     _forwardParams.debugCosineApprox = false;
     _forwardParams.ellipseApprox = false;
     _forwardParams.adaptiveOIT = false;
-    _forwardParams.ellipseApproxFocalDist = 2.0f;
+    _forwardParams.ellipseApproxFocalDist = 2.404f;
     _forwardParams.selected = -1;
+    _forwardParams.highlightBlockX = -1;
+    _forwardParams.highlightBlockY = -1;
 }
 
 GSGaussians::~GSGaussians()

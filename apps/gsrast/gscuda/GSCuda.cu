@@ -21,6 +21,11 @@
 #define SCREEN_SPACE_PC_BLOCKS_H 128
 #define BLOCK_W 16
 #define BLOCK_H 16
+#define ADAPTIVE_FUNC_SIZE 512
+#define AT_HASH_CONSTANT 101
+
+#define TEST_TILE(xx, yy) (block.group_index().x == xx && block.group_index().y == yy \
+			 && block.thread_rank() == 0)
 
 
 namespace gscuda 
@@ -261,6 +266,27 @@ namespace gscuda
         }
     }
 
+
+    /**
+       Debug kernel to draw a simple rectangle.
+       *Extremely* low efficiency; remember to remove this upon
+       successful debug.
+    */
+    __global__ void blitRectKernel(float *compositeBuffer, int width,
+                                   int height, int x, int y, int w,
+                                   int h, glm::vec3 color)
+    {
+        blitRect(compositeBuffer, width, height, x, y, w, h, color);
+    }
+
+    void blitRectHost(float *compositeBuffer, int width, int height,
+                      int x, int y, int w, int h, glm::vec3 color)
+    {
+        blitRectKernel<<<1, 1>>>(compositeBuffer, width,
+                                 height, x, y, w, h, color);
+    }
+    
+
     __host__ __device__ void ellipsoidFromGaussian(gs::MathematicalEllipsoid &ellip,
                                                    const glm::mat3 &rot,
                                                    const glm::vec4 &scl,
@@ -408,7 +434,7 @@ namespace gscuda
      * getRects: straight ripoff functions from SIBR.
      * TODO: I don't really understand WTF is going on here, so I am just gonna go ahead an take it.
      */
-    __forceinline__ __device__ void getRect(const glm::vec2 &p, int max_radius, glm::uvec2 &rect_min, glm::uvec2 &rect_max, dim3 grid)
+    __device__ void getRect(const glm::vec2 &p, int max_radius, glm::uvec2 &rect_min, glm::uvec2 &rect_max, dim3 grid)
     {
         rect_min = {
             (unsigned int) glm::min((int) grid.x, glm::max((int)0, (int)((p.x - max_radius) / BLOCK_W))),
@@ -420,7 +446,7 @@ namespace gscuda
         };
     }
 
-    __forceinline__ __device__ void getRect(const glm::vec2 &p, glm::ivec2 ext_rect, glm::uvec2 &rect_min, glm::uvec2 &rect_max, dim3 grid)
+    __device__ void getRect(const glm::vec2 &p, glm::ivec2 ext_rect, glm::uvec2 &rect_min, glm::uvec2 &rect_max, dim3 grid)
     {
         rect_min = {
             (unsigned int) glm::min((int) grid.x, glm::max((int)0, (int)((p.x - ext_rect.x) / BLOCK_W))),
@@ -442,8 +468,7 @@ namespace gscuda
                                      const glm::mat3 &rotate,
                                      const glm::mat4 &projMat,
                                      int width, int height,
-                                     glm::uvec2 &extent,
-                                     float &radius)
+                                     glm::uvec2 &extent)
     {
         glm::mat4 units(scale.x, 0.0f, 0.0f, 1.0f,
                         0.0f, scale.y, 0.0f, 1.0f,
@@ -459,7 +484,6 @@ namespace gscuda
         }
         units = projMat * units;
 
-	radius = 0.0f;
         glm::vec2 semiAxes(0.0f);
         for (int i = 0; i < 4; i++)
         {
@@ -473,11 +497,9 @@ namespace gscuda
             float absSemiY = fabs(semi.y);
             semiAxes.x = glm::max(semiAxes.x, absSemiX);
             semiAxes.y = glm::max(semiAxes.y, absSemiY);
-            radius = glm::max(radius, 4.0f * glm::max(absSemiX, absSemiY));
         }
         semiAxes = 2.0f * semiAxes;
         extent = { semiAxes.x * width, semiAxes.y * height };
-	radius = glm::max(width, height) * radius;
     }
 
     __global__ void preprocessCUDA(int numGaussians, int shDims, int M,
@@ -583,26 +605,23 @@ namespace gscuda
                 rects[idx] = myRect;
                 getRect(pointImage, myRect, rectMin, rectMax, grid);
 
-		if (idx == params.selected)
-		{
-		    glm::uvec2 rectSpan(rectMax.x - rectMin.x + 1,
-					rectMax.y - rectMin.y + 1);
-		    blitRect(compositeBuffer,
-			     width, height,
-			     rectMin.x * BLOCK_W,
-			     rectMin.y * BLOCK_H,
-			     rectSpan.x * BLOCK_W,
-			     rectSpan.y * BLOCK_H,
-			     glm::vec3(1.0f, 1.0f, 0.0f));
-		    blitRect(compositeBuffer,
-			     width, height,
-			     pointImage.x - myRect.x,
-			     pointImage.y - myRect.y,
-			     myRect.x * 2, myRect.y * 2, glm::vec3(1.0f, 0.0f, 0.0f));
-
-		    printf("%d %d %d %d %d %d %d\n", (rectMax.x - rectMin.x) * (rectMax.y - rectMin.y), rectMin.x, rectMin.y, rectMax.x, rectMax.y,
-			   myRect.x, myRect.y);
-		}
+                if (idx == params.selected)
+                {
+                    glm::uvec2 rectSpan(rectMax.x - rectMin.x + 1,
+                                        rectMax.y - rectMin.y + 1);
+                    blitRect(compositeBuffer,
+                             width, height,
+                             rectMin.x * BLOCK_W,
+                             rectMin.y * BLOCK_H,
+                             rectSpan.x * BLOCK_W,
+                             rectSpan.y * BLOCK_H,
+                             glm::vec3(1.0f, 1.0f, 0.0f));
+                    blitRect(compositeBuffer,
+                             width, height,
+                             pointImage.x - myRect.x,
+                             pointImage.y - myRect.y,
+                             myRect.x * 2, myRect.y * 2, glm::vec3(1.0f, 0.0f, 0.0f));
+                }
             }
             if ((rectMax.x - rectMin.x) * (rectMax.y - rectMin.y) == 0)
             {
@@ -666,10 +685,9 @@ namespace gscuda
             // Obtain semi-axes for coarse ellipse rect
             glm::vec2 pointImage = (glm::vec2(projected) * 0.5f + 0.5f) * glm::vec2(width, height);
 
-            float myRadius;
             glm::uvec2 myRect, rectMin, rectMax;
             getEllipseExtent(means3D[idx], scales[idx], rotMat, projMat,
-                             width, height, myRect, myRadius);
+                             width, height, myRect);
             getRect(pointImage, myRect, rectMin, rectMax, grid);
             size_t numTiles = (rectMax.x - rectMin.x) * (rectMax.y - rectMin.y);
             if (numTiles == 0)
@@ -691,16 +709,16 @@ namespace gscuda
             // them to transfer some debug data.
             if (idx == params.selected)
             {
-		glm::uvec2 rectSpan(rectMax.x - rectMin.x + 1,
-				    rectMax.y - rectMin.y + 1);
-		blitRect(compositeBuffer,
+                glm::uvec2 rectSpan(rectMax.x - rectMin.x + 1,
+                                    rectMax.y - rectMin.y + 1);
+                blitRect(compositeBuffer,
                          width, height,
                          rectMin.x * BLOCK_W,
                          rectMin.y * BLOCK_H,
                          rectSpan.x * BLOCK_W,
-			 rectSpan.y * BLOCK_H,
-			 glm::vec3(1.0f, 1.0f, 0.0f));
-		blitRect(compositeBuffer,
+                         rectSpan.y * BLOCK_H,
+                         glm::vec3(1.0f, 1.0f, 0.0f));
+                blitRect(compositeBuffer,
                          width, height,
                          pointImage.x - myRect.x,
                          pointImage.y - myRect.y,
@@ -708,8 +726,6 @@ namespace gscuda
 
                 conicOpacity[idx].x = myRect.x;
                 conicOpacity[idx].y = myRect.y;
-                printf("%llu %d %d %d %d %d %d\n", numTiles, rectMin.x, rectMin.y, rectMax.x, rectMax.y,
-                       myRect.x, myRect.y);
             }
             conicOpacity[idx].a = opacities[idx];
             means2D[idx] = pointImage;
@@ -733,11 +749,7 @@ namespace gscuda
         }
     }
 
-    /**
-       Given *ONE* input axis (`axes[0]`), completes the rest
-       and fill them into the matrix. Note, the input matrix MUST be
-       incomplete. Or they WILL be overwritten!
-    */
+
     __host__ __device__ void completeAxes(float *axes)
     {
         glm::vec3 *axesVec3 = reinterpret_cast<glm::vec3 *>(axes);
@@ -804,7 +816,7 @@ namespace gscuda
     /**
      * For each Gaussian, duplicateWithKeys fills up their respective portion of
      * unsorted point keys and so on. For example, if this Gaussian takes up 4 tiles in a screen,
-     * then four keys are gonna be duplicated. That's my guess.
+     * then four keys are gonna be duplicated. That's my guesss.
      */
     __global__ void duplicateWithKeys(int numGaussians,
                                       const glm::vec2 *means2D,
@@ -814,7 +826,8 @@ namespace gscuda
                                       uint32_t *gaussianValuesUnsorted,
                                       int *radii,
                                       dim3 grid,
-                                      glm::ivec2 *rects)
+                                      glm::ivec2 *rects,
+                                      ForwardParams params)
     {
         namespace cg = cooperative_groups;
         size_t idx = cg::this_grid().thread_rank();
@@ -841,7 +854,7 @@ namespace gscuda
         {
             getRect(means2D[idx], rects[idx], rectMin, rectMax, grid);
         }
-	
+
         // Later during sorting:
         // Tile IDs will be in order
         // Same tile IDs will have depths properly sorted (so long as depth is positive, comparison is correct)
@@ -851,9 +864,17 @@ namespace gscuda
             {
                 // 0000 0000 0000 0000 TILE ID__ IS__ HERE DEPT H_IN TERP RETED _AS_ UINT 32_T ____
                 uint64_t key = y * grid.x + x;
-                key <<= 32;
-                const uint32_t &depth = reinterpret_cast<const uint32_t &>(depths[idx]);
-                key |= depth;
+
+                // Only count depth if `adaptiveOIT` is not set within
+                // flags (we will construct the function manually
+                // during rendering for each block)
+                if (!params.adaptiveOIT)
+                {
+                    key <<= 32;
+                    const uint32_t &depth = reinterpret_cast<const uint32_t &>(depths[idx]);
+                    key |= depth;
+                }
+
                 gaussianKeysUnsorted[offset] = key;
                 gaussianValuesUnsorted[offset] = idx;
                 offset++;
@@ -888,7 +909,8 @@ namespace gscuda
         return msb;
     }
 
-    __global__ void identifyTileRanges(int numRendered, uint64_t *pointListKeys, glm::uvec2 *ranges)
+    __global__ void identifyTileRanges(int numRendered, uint64_t *pointListKeys,
+                                       glm::uvec2 *ranges, ForwardParams params)
     {
         namespace cg = cooperative_groups;
         size_t idx = cg::this_grid().thread_rank();
@@ -897,8 +919,13 @@ namespace gscuda
             return;
         }
 
-        uint64_t key = pointListKeys[idx]; // Remember, they are sorted at this point (which means a lot of them are probably like, the same)
-        uint32_t currentTile = key >> 32; // Recover the original tile
+        uint64_t key = pointListKeys[idx]; // Remember, they are
+                                           // sorted at this point
+                                           // (which means a lot of
+                                           // them are probably like,
+                                           // the same)
+        size_t shift = params.adaptiveOIT ? 0 : 32;
+        uint32_t currentTile = key >> shift; // Recover the original tile
         if (idx == 0)
         {
             ranges[currentTile].x = 0;
@@ -906,7 +933,7 @@ namespace gscuda
         else
         {
             // Fuck me. Don't forget to bit shift!
-            uint32_t prevTile = pointListKeys[idx - 1] >> 32;
+            uint32_t prevTile = pointListKeys[idx - 1] >> shift;
             /**
              * This only happens during the switching of tiles.
              * As in, end of the old tile, and beginning of the new.
@@ -963,8 +990,187 @@ namespace gscuda
         return a * a * a;
     }
 
+    __host__ __device__ void constructAdaptiveF(const float *depths,
+                                                const uint32_t *ids,
+                                                const glm::uvec2 &range,
+                                                MiniNode *nodes, size_t numNodes,
+                                                int &head, int &tail)
+    {
+        for (int i = 0; i < numNodes; i++)
+        {
+            nodes[i].prev = i - 1;
+            nodes[i].next = i + 1 >= numNodes ? -1 : i + 1;
+            nodes[i].depth = FLT_MAX;
+            nodes[i].id = -1;
+        }
+        head = 0;
+        tail = numNodes - 1;
+        for (int i = range.x; i < range.y; i++)
+        {
+            int nodeIdx = head;
+            const uint32_t id = ids[i];
+            const float d = depths[id] + 0.00001f; // slightly deeper so
+                                                 // as to not count self
+
+            while (nodes[nodeIdx].depth < d && nodeIdx != -1)
+            {
+                nodeIdx = nodes[nodeIdx].next;
+            }
+            if (nodeIdx == -1)
+            {
+                continue;
+            }
+            // The node we are having (nodeIdx) is now farther into
+            // the camera than the current iterating node. That means
+            // we need to insert a new node in-place.
+            // 1. prev->next = new
+            // 2. new->next = this
+            // If there is no prev, that means what we have is the
+            // head. Update the head accordingly. If there is no next,
+            // that means we just replace it in-place.
+            if (nodes[nodeIdx].next == -1)
+            {
+                nodes[nodeIdx].depth = d;
+                nodes[nodeIdx].id = id;
+                continue;
+            }
+            int newTail = nodes[tail].prev;
+            nodes[tail].depth = d;
+            nodes[tail].id = id;
+            if (nodes[nodeIdx].prev != -1)
+            {
+                nodes[nodes[nodeIdx].prev].next = tail;
+                nodes[tail].prev = nodes[nodeIdx].prev;
+            }
+            else
+            {
+                // There is no prev for the inserted. That means we
+                // become the new head, automatically.
+                nodes[tail].prev = -1;
+                head = tail;
+            }
+            nodes[tail].next = nodeIdx;
+            nodes[nodeIdx].prev = tail;
+            tail = newTail;
+            nodes[newTail].next = -1;
+        }
+    }
+
+    void constructAdaptiveFHost(const float *depths,
+                                const uint32_t *ids,
+                                const unsigned int *range,
+                                MiniNode *nodes, size_t numNodes,
+                                int &head, int &tail)
+    {
+        constructAdaptiveF(depths, ids,
+                           reinterpret_cast<const glm::uvec2 &>(*range),
+                           nodes, numNodes, head, tail);
+    }
+
+    __host__ __device__ int sampleAdaptiveF(MiniNode *nodes, size_t numNodes,
+                                                 int head, float depth)
+    {
+        int id = -1;
+        while (head != -1)
+        {
+            if (depth < nodes[head].depth)
+            {
+                break;
+            }
+            id = nodes[head].id;
+            head = nodes[head].next;
+        }
+        return id;
+    }
+
+    int sampleAdaptiveFHost(MiniNode *nodes, size_t numNodes,
+                            int head, float depth)
+    {
+        return sampleAdaptiveF(nodes, numNodes, head, depth);
+    }
+
+    __device__ float sampleTable(KeyValue *table, size_t tableSize, int index)
+    {
+	for (int i = 0; i < tableSize; i++)
+	{
+	    if (table[i].key == index)
+	    {
+		return table[i].value;
+	    }
+	}
+	return 0.0f;
+    }
+
+    __device__ float obtainAlpha(
+        const glm::uvec2 &pix, int width, int height,
+        const gs::MathematicalEllipse &ellipse, const glm::vec4 &conicOpacity,
+        const glm::vec2 &screenSpace, const ForwardParams &forwardParams)
+    {
+        float alpha = 0.0f;
+        if (forwardParams.ellipseApprox)
+        {
+            // 1. We don't need to evaluate delta, not
+            // actually. Transform pix to NDC.
+            glm::vec2 pixNDC = glm::vec2((float) pix.x / width, (float) pix.y / height);
+            pixNDC = pixNDC * 2.0f - 1.0f;
+            float aspect = (float) width / height;
+            pixNDC.x *= aspect;
+
+            // 2. Plug it into our ellipse formula.
+            // float ellipseVal = -glm::dot(pixNDC, collectedEllipses[j].A * pixNDC) +
+            //  glm::dot(pixNDC, collectedEllipses[j].b) + collectedEllipses[j].c;
+
+            float ellipseVal = (ellipse.A[0][0] * pixNDC.x + ellipse.A[1][0] * pixNDC.y) * pixNDC.x +
+                (ellipse.A[0][1] * pixNDC.x + ellipse.A[1][1] * pixNDC.y) * pixNDC.y +
+                ellipse.b[0] * pixNDC.x + ellipse.b[1] * pixNDC.y + ellipse.c;
+            ellipseVal = -ellipseVal;
+
+            if (ellipseVal > 0.0f)
+            {
+                return alpha;
+            }
+            alpha = 0.5f * conicOpacity.w;
+        }
+        else
+        {
+            glm::vec2 delta = screenSpace - glm::vec2(pix);
+
+            if (!forwardParams.cosineApprox)
+            {
+                // "The alpha decays exponentially from the Gaussian center." I've read that somewhere in the paper. May not be
+                // completely the same though. Well, it was either in paper or in code.
+                // TODO: I have no idea what this equation means. SIBR explanation:
+                // Resample using conic matrix (cf. "Surface Splatting" by Zwicker et al., 2001)
+                float power = -0.5f * (conicOpacity.x * delta.x * delta.x + conicOpacity.z * delta.y * delta.y) - conicOpacity.y * delta.x * delta.y;
+                if (power > 0.0f)
+                {
+                    return alpha; // ?????
+                }
+
+                // Oh wait, here it is.
+                // Eq. (2) from 3D Gaussian splatting paper.
+                // Obtain alpha by multiplying with Gaussian opacity
+                // and its exponential falloff from mean.
+                // Avoid numerical instabilities (see paper appendix).
+                alpha = exp(power);
+            }
+            else
+            {
+                float coeff = conicOpacity.x * delta.x * delta.x + conicOpacity.z * delta.y * delta.y + 2.0f * conicOpacity.y * delta.x * delta.y;
+                if (coeff < 0.0f)
+                {
+                    return alpha;
+                }
+                alpha = approxNorm2(coeff);
+            }
+            alpha = glm::min(0.99f, conicOpacity.w * alpha);
+        }
+
+        return alpha;
+    }
+
     /**
-     * Actually render stuffs to the screen.
+     * actually render stuffs to the screen.
      */
     __global__ void renderCUDA(const glm::uvec2 * __restrict__ ranges,
                                const uint32_t * __restrict__ pointList,
@@ -973,6 +1179,7 @@ namespace gscuda
                                const glm::vec3 * __restrict__ features, // "colors"
                                const glm::vec4 * __restrict__ conicOpacities,
                                const gs::MathematicalEllipse * __restrict__ ellipses,
+                               const float * __restrict__ depths,
                                float * __restrict__ finalT, // "accumAlpha"
                                uint32_t * __restrict__ nContrib,
                                const glm::vec3 * __restrict__ background,
@@ -1001,21 +1208,114 @@ namespace gscuda
         int rounds = (range.y - range.x + blockSize - 1) / blockSize;
         int work = range.y - range.x;
 
-        // if (block.thread_rank() == 0 && work != 0)
-        // {
-        //     printf("My pixels: %d, %d - %d, %d. Work: %d.\n", pixMin.x, pixMin.y, pixMax.x, pixMax.y, work);
-        // }
-
         __shared__ int32_t collectedIds[blockSize];
         __shared__ glm::vec2 collectedXYs[blockSize];
         __shared__ glm::vec4 collectedConicOpacities[blockSize];
         __shared__ gs::MathematicalEllipse collectedEllipses[blockSize];
         __shared__ glm::vec3 collectedColors[blockSize];
 
+        /**
+           The adaptive OIT visibility function.
+        */
+        __shared__ float collectedDepths[blockSize];
+        __shared__ MiniNode adaptiveF[ADAPTIVE_FUNC_SIZE];
+        __shared__ int adaptiveFHead, adaptiveFTail;
+        KeyValue atHashTable[ADAPTIVE_FUNC_SIZE];
+	int atHashTableSize = 0;
+
         float accumAlpha = 1.0f;
         uint32_t contributor = 0;
         uint32_t lastContributor = 0;
         glm::vec3 color = glm::vec3(0.0f);
+        glm::vec3 overflowColor = glm::vec3(0.0f);
+        int numOverflows = 0;
+
+        /**
+           Preprocess round: build the small linked list, and every
+           single thread build their own alpha decay values.
+
+           Adaptive OIT code here; one thread should construct a
+           memory-efficient tiny linked list.
+           Only one worker should do it; it traverses through the
+           whole depth & opacity array to construct a neat little
+           adaptiveFunction (the `adaptiveF` above.)
+        */
+        if (forwardParams.adaptiveOIT)
+        {
+            if (block.thread_rank() == 0)
+            {
+                constructAdaptiveF(depths, pointList, range,
+                                   adaptiveF, ADAPTIVE_FUNC_SIZE,
+                                   adaptiveFHead, adaptiveFTail);
+
+                // Question. Why do they have different uh head
+                // blocks? Although they are right next to each other?
+                // if ((block.group_index().x == 29 || block.group_index().x == 25) &&
+                //     block.group_index().y == 27 && block.thread_rank() == 0)
+                // {
+                //     int id = adaptiveF[adaptiveFHead].id;
+                //     printf("Block head: %d, depth: %f, visibility: %f, %d-%d\n",
+                //         adaptiveF[adaptiveFHead].id, depths[id],
+                //         atHashTable[id % AT_HASH_CONSTANT],
+                //         range.x, range.y);
+                //     // first off; is it the problem of the ranges?
+                //     for (int i = range.x; i < range.y; i++)
+                //     {
+                //      printf("%d: %d: %f\n", block.group_index().x,
+                //             pointList[i], depths[pointList[i]]);
+                //     }
+                // }
+            }
+            block.sync(); // This sucks; every thread is waiting for
+                          // ONE guy
+            // Iterate through the linked list we just made, and calc
+            // their alpha values
+            float alphaDecay = 1.0f;
+            int it = adaptiveFHead;
+            while (it != -1)
+            {
+                if (adaptiveF[it].id == -1) break;
+                const int id = adaptiveF[it].id;
+
+                gs::MathematicalEllipse ellipse = ellipses[id];
+                glm::vec4 conicOpacity = conicOpacities[id];
+                glm::vec2 screenSpace = means2D[id];
+                const float alpha = obtainAlpha(
+                    pix, width, height, ellipse, conicOpacity,
+                    screenSpace, forwardParams);
+                alphaDecay *= (1.0f - alpha);
+		atHashTable[atHashTableSize++] = { id, alphaDecay };
+		if (alphaDecay < 0.01f)
+		{
+		    break;
+		}
+                it = adaptiveF[it].next;
+            }
+
+	    if (TEST_TILE(20, 20))
+	    {
+		printf("AdaptiveF done. Range: %d %d\n", range.x, range.y);
+		int it = adaptiveFHead;
+		int numList = 0;
+		while (it != adaptiveFTail)
+		{
+		    printf("ID: %d, depth: %f, visibility: %f\n",
+			   adaptiveF[it].id, adaptiveF[it].depth,
+			   sampleTable(atHashTable,
+				       atHashTableSize,
+				       adaptiveF[it].id));
+		    if (adaptiveF[it].id == -1)
+		    {
+			break;
+		    }
+		    it = adaptiveF[it].next;
+		    numList++;
+		}
+		printf("#list: %d\n", numList);
+		
+
+	    }
+        }
 
         /**
          * The whole block will cooperate on fetching data and putting them into shared variables (faster this way)
@@ -1038,10 +1338,12 @@ namespace gscuda
                 int collId = pointList[range.x + progress];
                 collectedIds[block.thread_rank()] = collId;
                 collectedXYs[block.thread_rank()] = means2D[collId];
-		collectedConicOpacities[block.thread_rank()] = conicOpacities[collId];
+                collectedConicOpacities[block.thread_rank()] = conicOpacities[collId];
                 collectedColors[block.thread_rank()] = features[collId];
                 collectedEllipses[block.thread_rank()] = ellipses[collId];
+                collectedDepths[block.thread_rank()] = depths[collId];
             }
+
             /**
              * The whole block now syncs. Note, we don't really need this procedure, since we can fetch them directly from the block (I think.)
              * Is it just because it is faster this way?
@@ -1059,94 +1361,71 @@ namespace gscuda
             {
                 contributor++;
 
-                float alpha = 0.0f;
-                if (forwardParams.ellipseApprox)
-                {
-                    // 1. We don't need to evaluate delta, not
-                    // actually. Transform pix to NDC.
-                    glm::vec2 pixNDC = glm::vec2((float) pix.x / width, (float) pix.y / height);
-                    pixNDC = pixNDC * 2.0f - 1.0f;
-                    float aspect = (float) width / height;
-                    pixNDC.x *= aspect;
-
-                    // 2. Plug it into our ellipse formula.
-                    // float ellipseVal = -glm::dot(pixNDC, collectedEllipses[j].A * pixNDC) +
-                    //  glm::dot(pixNDC, collectedEllipses[j].b) + collectedEllipses[j].c;
-
-                    const gs::MathematicalEllipse &ellipse = collectedEllipses[j];
-                    float ellipseVal = (ellipse.A[0][0] * pixNDC.x + ellipse.A[1][0] * pixNDC.y) * pixNDC.x +
-                        (ellipse.A[0][1] * pixNDC.x + ellipse.A[1][1] * pixNDC.y) * pixNDC.y +
-                        ellipse.b[0] * pixNDC.x + ellipse.b[1] * pixNDC.y + ellipse.c;
-                    ellipseVal = -ellipseVal;
-
-                    if (ellipseVal > 0.0f)
-                    {
-                        continue;
-                    }
-                    // alpha = -ellipseVal *
-                    // collectedConicOpacities[j].w;
-                    alpha = 0.5f * collectedConicOpacities[j].w;
-                }
-                else
-                {
-                    const glm::vec2 &screenSpace = collectedXYs[j];
-                    glm::vec2 delta = screenSpace - glm::vec2(pix);
-                    glm::vec4 conicOpacity = collectedConicOpacities[j];
-
-                    if (!forwardParams.cosineApprox)
-                    {
-                        // "The alpha decays exponentially from the Gaussian center." I've read that somewhere in the paper. May not be
-                        // completely the same though. Well, it was either in paper or in code.
-                        // TODO: I have no idea what this equation means. SIBR explanation:
-                        // Resample using conic matrix (cf. "Surface Splatting" by Zwicker et al., 2001)
-                        float power = -0.5f * (conicOpacity.x * delta.x * delta.x + conicOpacity.z * delta.y * delta.y) - conicOpacity.y * delta.x * delta.y;
-                        if (power > 0.0f)
-                        {
-                            continue; // ?????
-                        }
-
-                        // Oh wait, here it is.
-                        // Eq. (2) from 3D Gaussian splatting paper.
-                        // Obtain alpha by multiplying with Gaussian opacity
-                        // and its exponential falloff from mean.
-                        // Avoid numerical instabilities (see paper appendix).
-                        alpha = exp(power);
-
-                        if (forwardParams.debugCosineApprox)
-                        {
-                            collectedColors[j] = glm::vec3(delta.x, delta.y, fabs(delta.x * delta.x));
-                        }
-                    }
-                    else
-                    {
-                        float coeff = conicOpacity.x * delta.x * delta.x + conicOpacity.z * delta.y * delta.y + 2.0f * conicOpacity.y * delta.x * delta.y;
-                        if (coeff < 0.0f)
-                        {
-                            continue;
-                        }
-                        alpha = approxNorm2(coeff);
-                    }
-                    alpha = glm::min(0.99f, conicOpacity.w * alpha);
-                }
+                const gs::MathematicalEllipse &ellipse = collectedEllipses[j];
+                const glm::vec4 &conicOpacity = collectedConicOpacities[j];
+                const glm::vec2 &screenSpace = collectedXYs[j];
+                float alpha = obtainAlpha(pix, width, height, ellipse, conicOpacity,
+                                          screenSpace, forwardParams);
 
                 if (alpha < 1.0f / 255.0f)
                 {
                     continue;
                 }
 
-                // Test the remaining alpha and see if it makes sense to continue the blend.
-                // TODO: Having questions.
-                float testNewAlpha = accumAlpha * (1.0f - alpha);
-                if (testNewAlpha < 0.001f)
+                if (forwardParams.debugCosineApprox)
                 {
-                    // No alpha left to fill; I'm out of here
-                    done = true;
-                    continue;
+                    // collectedColors[j] = glm::vec3(delta.x, delta.y, fabs(delta.x * delta.x));
                 }
 
-                // Eq. 3 from the splatting paper.
-                color += collectedColors[j] * alpha * accumAlpha;
-                accumAlpha = testNewAlpha;
+                if (forwardParams.adaptiveOIT)
+                {
+                    int id = sampleAdaptiveF(adaptiveF, ADAPTIVE_FUNC_SIZE,
+                                             adaptiveFHead, collectedDepths[j]);
+
+                    float visibility = 1.0f;
+                    if (id != -1)
+                    {
+                        visibility = sampleTable(atHashTable, atHashTableSize, id);
+                    }
+
+		    if (TEST_TILE(20, 20))
+		    {
+			printf("Actual id: %d, id: %d, tail? %d, alpha: %f, visibility: %f\n", collectedIds[j],
+			       id, (id == adaptiveF[adaptiveFTail].id) ? 1 : 0, alpha, visibility);
+		    }
+
+		    if (visibility < 0.01f)
+                    {
+                        continue;
+                    }
+
+                    alpha *= visibility;
+
+                    if (id != -1 && id == adaptiveF[adaptiveFTail].id)
+                    {
+                        overflowColor += collectedColors[j] * alpha;
+                        numOverflows++;
+                    }
+                    else
+                    {
+                        color += collectedColors[j] * alpha;
+                    }
+                }
+                else
+                {
+                    // Test the remaining alpha and see if it makes sense to continue the blend.
+                    float testNewAlpha = accumAlpha * (1.0f - alpha);
+                    if (testNewAlpha < 0.001f)
+                    {
+                        // No alpha left to fill; I'm out of here
+                        done = true;
+                        continue;
+                    }
+
+                    // Eq. 3 from the splatting paper.
+                    color += collectedColors[j] * alpha * accumAlpha;
+                    accumAlpha = testNewAlpha;
+                }
 
                 lastContributor = contributor;
             }
@@ -1155,6 +1434,11 @@ namespace gscuda
         // It is done. Write all things to output buffer
         if (inside)
         {
+            if (forwardParams.adaptiveOIT && numOverflows != 0)
+            {
+                color += 0.5f * overflowColor;
+            }
+
             finalT[pixId] = accumAlpha;
             nContrib[pixId] = lastContributor;
             outColor[pixId + width * height * 0] = color.r + accumAlpha * background->r;
@@ -1170,6 +1454,7 @@ namespace gscuda
                 const glm::vec3 *colors,
                 const glm::vec4 *conicOpacities,
                 const gs::MathematicalEllipse *ellipses,
+                const float *depths,
                 float *finalT, // "accumAlpha"
                 uint32_t *nContrib,
                 const glm::vec3 *background,
@@ -1177,7 +1462,7 @@ namespace gscuda
                 ForwardParams forwardParams)
     {
         renderCUDA<<<grid, block>>>(ranges, pointList, width, height,
-                                    means2D, colors, conicOpacities, ellipses,
+                                    means2D, colors, conicOpacities, ellipses, depths,
                                     finalT, nContrib, background, outColor, forwardParams);
     }
 
@@ -1291,10 +1576,9 @@ namespace gscuda
         BinningState binningState = BinningState::fromChunk(binningBuf, geomState.numRendered);
 
         // Now we need to produce the keys
-	duplicateWithKeys<<<(numGaussians + 255 / 256), 256>>>(numGaussians, geomState.means2D, geomState.depths, geomState.pointOffsets,
+        duplicateWithKeys<<<(numGaussians + 255 / 256), 256>>>(numGaussians, geomState.means2D, geomState.depths, geomState.pointOffsets,
                                                                binningState.pointListKeysUnsorted, binningState.pointListUnsorted,
-                                                               radii, tileGrid, (glm::ivec2 *) rects);
-        CHECK_CUDA_ERROR(cudaDeviceSynchronize());
+                                                               radii, tileGrid, (glm::ivec2 *) rects, forwardParams);
 
         int highestBit = getHigherMsb(tileGrid.x * tileGrid.y);
 
@@ -1303,25 +1587,31 @@ namespace gscuda
                                         binningState.pointListKeysUnsorted, binningState.pointListKeys,
                                         binningState.pointListUnsorted, binningState.pointList,
                                         geomState.numRendered, 0, highestBit + 32);
-        CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
         // Determine tile ranges
         cudaMemset(imState.ranges, 0, sizeof(glm::uvec2) * width * height);
-        identifyTileRanges<<<(geomState.numRendered + 255) / 256, 256>>>(geomState.numRendered, binningState.pointListKeys, imState.ranges);
-        CHECK_CUDA_ERROR(cudaDeviceSynchronize());
+        identifyTileRanges<<<(geomState.numRendered + 255) / 256, 256>>>(geomState.numRendered, binningState.pointListKeys,
+                                                                         imState.ranges, forwardParams);
 
         const glm::vec3 *colorsPtr = colorsPrecomp ? (const glm::vec3 *) colorsPrecomp : geomState.rgb;
         render(tileGrid, block,
                imState.ranges, binningState.pointList,
                width, height,
                geomState.means2D, colorsPtr, geomState.conicOpacity,
-               geomState.ellipses,
+               geomState.ellipses, geomState.depths,
                imState.accumAlpha, imState.nContrib,
                (const glm::vec3 *) background,
                outColor, forwardParams);
-        CHECK_CUDA_ERROR(cudaDeviceSynchronize());
-        
+
+        if (forwardParams.highlightBlockX != -1 && forwardParams.highlightBlockY != -1)
+        {
+            blitRectHost(compositeBuffer, width, height,
+                         forwardParams.highlightBlockX * BLOCK_W,
+                         forwardParams.highlightBlockY * BLOCK_H,
+                         BLOCK_W, BLOCK_H,
+                         glm::vec3(1.0f, 0.5f, 0.0f));
+        }
+
         composite(width, height, outColor, compositeBuffer);
-        CHECK_CUDA_ERROR(cudaDeviceSynchronize());
     }
 };
