@@ -358,30 +358,30 @@ void Inspector::drawInspector()
             {
 		if (ImGui::Button("Test adaptive OIT construction"))
 		{
-		    gscuda::MiniNode nodes[5];
-		    int head, tail;
-		    gscuda::initAdaptiveFHost(nodes, 5, head, tail);
-		    std::uniform_real_distribution<float> distrib;
-		    std::random_device dev;
-		    for (int i = 0; i < 1000; i++)
-		    {
-			int id = (int) (distrib(dev) * 10000000);
-			float depth = distrib(dev);
-			float alpha = powf(distrib(dev), 3.0f);
-			glm::vec3 color = glm::vec3(distrib(dev), distrib(dev), distrib(dev));
-			gscuda::insertAdaptiveFHost(nodes, 5, depth, id, alpha,
-						    &color[0], head, tail);
-		    }
+		    // gscuda::MiniNode nodes[5];
+		    // int head, tail;
+		    // gscuda::initAdaptiveFHost(nodes, 5, head, tail);
+		    // std::uniform_real_distribution<float> distrib;
+		    // std::random_device dev;
+		    // for (int i = 0; i < 1000; i++)
+		    // {
+		    // 	int id = (int) (distrib(dev) * 10000000);
+		    // 	float depth = distrib(dev);
+		    // 	float alpha = powf(distrib(dev), 3.0f);
+		    // 	glm::vec3 color = glm::vec3(distrib(dev), distrib(dev), distrib(dev));
+		    // 	gscuda::insertAdaptiveFHost(nodes, 5, depth, id, alpha,
+		    // 				    &color[0], head, tail);
+		    // }
 
-		    std::cout << "The done deal:" << std::endl;
-		    int it = head;
-		    while (it != -1)
-		    {
-			std::cout << nodes[it].depth << " " << nodes[it].alpha << " "
-				  << nodes[it].color.r << " " << nodes[it].color.g << " "
-				  << nodes[it].color.b << std::endl;
-			it = nodes[it].next;
-		    }
+		    // std::cout << "The done deal:" << std::endl;
+		    // int it = head;
+		    // while (it != -1)
+		    // {
+		    // 	std::cout << nodes[it].depth << " " << nodes[it].alpha << " "
+		    // 		  << nodes[it].color.r << " " << nodes[it].color.g << " "
+		    // 		  << nodes[it].color.b << std::endl;
+		    // 	it = nodes[it].next;
+		    // }
 		}
 		if (startTable())
 		{

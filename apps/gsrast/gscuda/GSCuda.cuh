@@ -90,7 +90,7 @@ namespace gscuda
     void initAdaptiveFHost(MiniNode *nodes, size_t numNodes, int &head, int &tail);
 
     void insertAdaptiveFHost(
-	MiniNode *nodes, size_t numNodes,
+	MiniNode *nodes, size_t numNodes, int nodeIdx,
 	float depth, uint32_t id, float alpha, const float *color,
 	int &head, int &tail);
 

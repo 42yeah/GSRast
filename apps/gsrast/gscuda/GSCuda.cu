@@ -1009,36 +1009,35 @@ namespace gscuda
 
 
     /**
-       Insert one member into the adaptive visibility function.
-       The visibility function will keep its order, so relax.
+       Find the insertion location based on our currently available
+       adaptive F. Returns insertion location; that is, you need to
+       insert *before* index. Returns -1 for no insertion.
     */
-    __host__ __device__ void insertAdaptiveF(
-        MiniNode *nodes, size_t numNodes,
-        float depth, uint32_t id, float alpha, const glm::vec3 &color,
-        int &head, int &tail)
+    __device__ int testAdaptiveFLocation(
+        MiniNode *nodes, size_t numNodes, int head, float depth)
     {
-        if (alpha < IMPACT_ALPHA)
-        {
-            // We only keep record of the "heavy hitters".
-            // TODO: aliasing problems will arise from this. Maybe we
-            // only discard them when the linked list is utterly empty.
-            return;
-        }
-
         int nodeIdx = head;
         while (nodeIdx != -1 && nodes[nodeIdx].depth < depth)
         {
             nodeIdx = nodes[nodeIdx].next;
         }
-        if (nodeIdx == -1)
+        return nodeIdx;
+    }
+
+    /**
+       Insert one member into the adaptive visibility function.
+       The visibility function will keep its order, so relax.
+    */
+    __host__ __device__ void insertAdaptiveF(
+        MiniNode *nodes, size_t numNodes, int nodeIdx,
+        float depth, uint32_t id, float alpha, const glm::vec3 &color,
+        int &head, int &tail)
+    {
+        if (nodeIdx == -1 || alpha < IMPACT_ALPHA)
         {
-            if (alpha - nodes[tail].alpha > IMPACT_ALPHA)
-            {
-                nodes[tail].depth = depth;
-                nodes[tail].id = id;
-                nodes[tail].alpha = alpha;
-                nodes[tail].color = color;
-            }
+            // We only keep record of the "heavy hitters".
+            // TODO: aliasing problems will arise from this. Maybe we
+            // only discard them when the linked list is utterly empty.
             return;
         }
 
@@ -1087,12 +1086,13 @@ namespace gscuda
     }
 
     void insertAdaptiveFHost(
-        MiniNode *nodes, size_t numNodes,
+        MiniNode *nodes, size_t numNodes, int nodeIdx,
         float depth, uint32_t id, float alpha, const float *color,
         int &head, int &tail)
     {
         insertAdaptiveF(
-            nodes, numNodes, depth, id, alpha, reinterpret_cast<const glm::vec3 &>(*color),
+            nodes, numNodes, nodeIdx, depth, id, alpha,
+            reinterpret_cast<const glm::vec3 &>(*color),
             head, tail);
     }
 
@@ -1269,13 +1269,6 @@ namespace gscuda
                 const gs::MathematicalEllipse &ellipse = collectedEllipses[j];
                 const glm::vec4 &conicOpacity = collectedConicOpacities[j];
                 const glm::vec2 &screenSpace = collectedXYs[j];
-                float alpha = obtainAlpha(pix, width, height, ellipse, conicOpacity,
-                                          screenSpace, forwardParams);
-
-                if (alpha < 1.0f / 255.0f)
-                {
-                    continue;
-                }
 
                 if (forwardParams.debugCosineApprox)
                 {
@@ -1285,14 +1278,37 @@ namespace gscuda
                 if (forwardParams.adaptiveOIT)
                 {
                     // Use premultiplied colors
+                    float depth = collectedDepths[j];
+                    int nodeIdx = testAdaptiveFLocation(adaptiveF, ADAPTIVE_FUNC_SIZE,
+                                                        adaptiveFHead, depth);
+                    if (nodeIdx == -1)
+                    {
+                        continue;
+                    }
+                    float alpha = obtainAlpha(pix, width, height, ellipse, conicOpacity,
+                                          screenSpace, forwardParams);
+
+                    if (alpha < IMPACT_ALPHA)
+                    {
+                        continue;
+                    }
+
                     insertAdaptiveF(
-                        adaptiveF, ADAPTIVE_FUNC_SIZE,
+                        adaptiveF, ADAPTIVE_FUNC_SIZE, nodeIdx,
                         collectedDepths[j], collectedIds[j],
                         alpha, alpha * collectedColors[j],
                         adaptiveFHead, adaptiveFTail);
                 }
                 else
                 {
+                    float alpha = obtainAlpha(pix, width, height, ellipse, conicOpacity,
+                                          screenSpace, forwardParams);
+
+                    if (alpha < 1.0f / 255.0f)
+                    {
+                        continue;
+                    }
+
                     // Test the remaining alpha and see if it makes sense to continue the blend.
                     float testNewAlpha = accumAlpha * (1.0f - alpha);
                     if (testNewAlpha < 0.001f)
