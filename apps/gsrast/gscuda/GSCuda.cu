@@ -1028,21 +1028,24 @@ namespace gscuda
        Insert one member into the adaptive visibility function.
        The visibility function will keep its order, so relax.
     */
-    __host__ __device__ void insertAdaptiveF(
+    __host__ __device__ float insertAdaptiveF(
         MiniList *list, float depth, uint32_t id, float alpha, const glm::vec3 &color)
     {
         int nodeIdx = list->head;
+        float visibility = 1.0f;
         while (nodeIdx != -1 && list->nodes[nodeIdx].depth < depth)
         {
             nodeIdx = list->nodes[nodeIdx].next;
+            visibility *= (1.0f - list->nodes[nodeIdx].alpha);
         }
+        visibility *= (1.0f - alpha);
 
         if (nodeIdx == -1 || alpha < list->impactAlpha)
         {
             // We only keep record of the "heavy hitters".
             // TODO: aliasing problems will arise from this. Maybe we
             // only discard them when the linked list is utterly empty.
-            return;
+            return 0.0f;
         }
         list->maxDepth = list->maxDepth > depth ? list->maxDepth : depth;
         list->numInserted++;
@@ -1061,7 +1064,7 @@ namespace gscuda
                 list->nodes[nodeIdx].alpha = alpha;
                 list->nodes[nodeIdx].color = color;
             }
-            return;
+            return visibility;
         }
         int newTail = list->nodes[list->tail].prev;
         list->nodes[list->tail].depth = depth;
@@ -1084,6 +1087,7 @@ namespace gscuda
         list->nodes[nodeIdx].prev = list->tail;
         list->tail = newTail;
         list->nodes[newTail].next = -1;
+        return 0.0f;
     }
 
     __device__ float obtainAlpha(
@@ -1285,22 +1289,29 @@ namespace gscuda
                         continue;
                     }
 
-                    insertAdaptiveF(
+                    const float vis = insertAdaptiveF(
                         &adaptiveF,
                         collectedDepths[j], collectedIds[j],
                         alpha, alpha * collectedColors[j]);
+
+                    if (vis != 0.0f && vis < adaptiveF.impactAlpha)
+                    {
+                        done = true;
+                        continue;
+                    }
                 }
                 else
                 {
                     float alpha = obtainAlpha(pix, width, height, ellipse, conicOpacity,
                                           screenSpace, forwardParams);
 
-                    // if (alpha < 1.0f / 255.0f)
-                    // {
-                    //     continue;
-                    // }
+                    if (alpha < 1.0f / 255.0f)
+                    {
+                        continue;
+                    }
 
-                    // Test the remaining alpha and see if it makes sense to continue the blend.
+                    // Test the remaining alpha and see if it makes
+                    // sense to continue the blend.
                     float testNewAlpha = accumAlpha * (1.0f - alpha);
                     if (testNewAlpha < 0.001f)
                     {
