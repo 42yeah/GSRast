@@ -11,6 +11,7 @@ cudaDeviceSynchronize(); \
 if (cudaPeekAtLastError() != cudaSuccess) \
 std::cerr << "CUDA error at " << __FILE__ << ":" << __LINE__ << ": " << cudaGetErrorString(cudaGetLastError()) << "?" << std::endl;
 
+#define ADAPTIVE_FUNC_SIZE 10
 
 /**
  * gscuda is the CUDA part of the GSRast, where we try to rasterize 
@@ -31,6 +32,8 @@ namespace gscuda
 				      // approximated ellipses.
 	int selected;
 	int highlightBlockX, highlightBlockY;
+        float impactAlpha;
+        int numNodes;
     };
 
     /**
@@ -87,12 +90,20 @@ namespace gscuda
 	glm::vec3 color;
     };
 
-    void initAdaptiveFHost(MiniNode *nodes, size_t numNodes, int &head, int &tail);
-
-    void insertAdaptiveFHost(
-	MiniNode *nodes, size_t numNodes, int nodeIdx,
-	float depth, uint32_t id, float alpha, const float *color,
-	int &head, int &tail);
+    /**
+       Tiny implementation of a linked list. We will not use
+       class-like stuffs over here because I want to keep CUDA code as
+       C as possible. (though I might have already failed.)
+    */
+    struct MiniList
+    {
+        MiniNode nodes[ADAPTIVE_FUNC_SIZE];
+        size_t numNodes;
+        int head, tail;
+        float impactAlpha;
+        float maxDepth;
+        int numInserted; // Times the list has been inserted
+    };
 
     void render(const dim3 grid, const dim3 block,
                 const glm::uvec2 *ranges, const uint32_t *pointList,

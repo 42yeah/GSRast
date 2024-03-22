@@ -91,6 +91,8 @@ GSGaussians::GSGaussians(int width, int height, FirstPersonCamera::Ptr camera) :
     _forwardParams.selected = -1;
     _forwardParams.highlightBlockX = -1;
     _forwardParams.highlightBlockY = -1;
+    _forwardParams.impactAlpha = 0.1f;
+    _forwardParams.numNodes = 5;
 }
 
 GSGaussians::~GSGaussians()
@@ -109,7 +111,7 @@ GSGaussians::~GSGaussians()
     }
     if (_compositePtr)
     {
-	CHECK_CUDA_ERROR(cudaFree(_compositePtr));
+        CHECK_CUDA_ERROR(cudaFree(_compositePtr));
     }
 }
 
@@ -197,7 +199,7 @@ void GSGaussians::draw()
         FORWARD(_geomBufferFunc,
                 _binningBufferFunc,
                 _imgBufferFunc,
-		_compositeLayerBufferFunc,
+                _compositeLayerBufferFunc,
                 _numGaussians,
                 3,
                 16,
@@ -213,7 +215,7 @@ void GSGaussians::draw()
                 _rotations->getPtr(),
                 nullptr,
                 (const float *) _view->getPtr(),
-		(const float *) _perspective->getPtr(),
+                (const float *) _perspective->getPtr(),
                 (const float *) _projection->getPtr(),
                 (const float *) _camPos->getPtr(),
                 tanFOVx,

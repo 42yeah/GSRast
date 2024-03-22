@@ -59,8 +59,8 @@ namespace gscuda
             obtain(chunk, state.rgb, sizeof(glm::vec3) * numGaussians, 128);
             obtain(chunk, state.pointOffsets, sizeof(uint32_t) * numGaussians, 128);
 
-	    obtain(chunk, state.ellipsoids, sizeof(MathematicalEllipsoid) * numGaussians, 128);
-	    obtain(chunk, state.ellipses, sizeof(MathematicalEllipse) * numGaussians, 128);
+            obtain(chunk, state.ellipsoids, sizeof(MathematicalEllipsoid) * numGaussians, 128);
+            obtain(chunk, state.ellipses, sizeof(MathematicalEllipse) * numGaussians, 128);
 
             return state;
         }

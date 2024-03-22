@@ -21,8 +21,6 @@
 #define SCREEN_SPACE_PC_BLOCKS_H 128
 #define BLOCK_W 16
 #define BLOCK_H 16
-#define ADAPTIVE_FUNC_SIZE 5
-#define IMPACT_ALPHA 0.2f
 
 #define TEST_TILE(xx, yy) (block.group_index().x == xx && block.group_index().y == yy \
                          && block.thread_rank() == 0)
@@ -285,7 +283,6 @@ namespace gscuda
         blitRectKernel<<<1, 1>>>(compositeBuffer, width,
                                  height, x, y, w, h, color);
     }
-    
 
     __host__ __device__ void ellipsoidFromGaussian(gs::MathematicalEllipsoid &ellip,
                                                    const glm::mat3 &rot,
@@ -993,18 +990,21 @@ namespace gscuda
     /**
        Initialize the adaptive function.
     */
-    __host__ __device__ void initAdaptiveF(
-        MiniNode *nodes, size_t numNodes, int &head, int &tail)
+    __host__ __device__ void initAdaptiveF(MiniList *list, size_t numNodes, float impactAlpha)
     {
-        for (int i = 0; i < numNodes; i++)
+        list->numNodes = numNodes;
+        for (int i = 0; i < list->numNodes; i++)
         {
-            nodes[i].prev = i - 1;
-            nodes[i].next = i + 1 >= numNodes ? -1 : i + 1;
-            nodes[i].depth = FLT_MAX;
-            nodes[i].id = -1;
+            list->nodes[i].prev = i - 1;
+            list->nodes[i].next = i + 1 >= numNodes ? -1 : i + 1;
+            list->nodes[i].depth = FLT_MAX;
+            list->nodes[i].id = -1;
         }
-        head = 0;
-        tail = numNodes - 1;
+        list->head = 0;
+        list->tail = numNodes - 1;
+        list->impactAlpha = impactAlpha;
+        list->maxDepth = 0.0f;
+        list->numInserted = 0;
     }
 
 
@@ -1029,71 +1029,61 @@ namespace gscuda
        The visibility function will keep its order, so relax.
     */
     __host__ __device__ void insertAdaptiveF(
-        MiniNode *nodes, size_t numNodes, int nodeIdx,
-        float depth, uint32_t id, float alpha, const glm::vec3 &color,
-        int &head, int &tail)
+        MiniList *list, float depth, uint32_t id, float alpha, const glm::vec3 &color)
     {
-        if (nodeIdx == -1 || alpha < IMPACT_ALPHA)
+        int nodeIdx = list->head;
+        while (nodeIdx != -1 && list->nodes[nodeIdx].depth < depth)
+        {
+            nodeIdx = list->nodes[nodeIdx].next;
+        }
+
+        if (nodeIdx == -1 || alpha < list->impactAlpha)
         {
             // We only keep record of the "heavy hitters".
             // TODO: aliasing problems will arise from this. Maybe we
             // only discard them when the linked list is utterly empty.
             return;
         }
+        list->maxDepth = list->maxDepth > depth ? list->maxDepth : depth;
+        list->numInserted++;
 
         /**
            If we are at the end, *and* we can impact the scene more
            meaningfully, then we replace the one at the end
            TODO: might lead to aliasing
         */
-        if (nodes[nodeIdx].next == -1)
+        if (list->nodes[nodeIdx].next == -1)
         {
-            if (alpha - nodes[nodeIdx].alpha > IMPACT_ALPHA)
+            if (alpha - list->nodes[nodeIdx].alpha > list->impactAlpha)
             {
-                nodes[nodeIdx].depth = depth;
-                nodes[nodeIdx].id = id;
-                nodes[nodeIdx].alpha = alpha;
-                nodes[nodeIdx].color = color;
+                list->nodes[nodeIdx].depth = depth;
+                list->nodes[nodeIdx].id = id;
+                list->nodes[nodeIdx].alpha = alpha;
+                list->nodes[nodeIdx].color = color;
             }
             return;
         }
-        int newTail = nodes[tail].prev;
-        nodes[tail].depth = depth;
-        nodes[tail].id = id;
-        nodes[tail].alpha = alpha;
-        nodes[tail].color = color;
-        if (nodes[nodeIdx].prev != -1)
+        int newTail = list->nodes[list->tail].prev;
+        list->nodes[list->tail].depth = depth;
+        list->nodes[list->tail].id = id;
+        list->nodes[list->tail].alpha = alpha;
+        list->nodes[list->tail].color = color;
+        if (list->nodes[nodeIdx].prev != -1)
         {
-            nodes[nodes[nodeIdx].prev].next = tail;
-            nodes[tail].prev = nodes[nodeIdx].prev;
+            list->nodes[list->nodes[nodeIdx].prev].next = list->tail;
+            list->nodes[list->tail].prev = list->nodes[nodeIdx].prev;
         }
         else
         {
             // There is no prev for the inserted. That means we
             // become the new head, automatically.
-            nodes[tail].prev = -1;
-            head = tail;
+            list->nodes[list->tail].prev = -1;
+            list->head = list->tail;
         }
-        nodes[tail].next = nodeIdx;
-        nodes[nodeIdx].prev = tail;
-        tail = newTail;
-        nodes[newTail].next = -1;
-    }
-
-    void initAdaptiveFHost(MiniNode *nodes, size_t numNodes, int &head, int &tail)
-    {
-        initAdaptiveF(nodes, numNodes, head, tail);
-    }
-
-    void insertAdaptiveFHost(
-        MiniNode *nodes, size_t numNodes, int nodeIdx,
-        float depth, uint32_t id, float alpha, const float *color,
-        int &head, int &tail)
-    {
-        insertAdaptiveF(
-            nodes, numNodes, nodeIdx, depth, id, alpha,
-            reinterpret_cast<const glm::vec3 &>(*color),
-            head, tail);
+        list->nodes[list->tail].next = nodeIdx;
+        list->nodes[nodeIdx].prev = list->tail;
+        list->tail = newTail;
+        list->nodes[newTail].next = -1;
     }
 
     __device__ float obtainAlpha(
@@ -1213,9 +1203,9 @@ namespace gscuda
            The adaptive OIT visibility function.
         */
         __shared__ float collectedDepths[blockSize];
-        MiniNode adaptiveF[ADAPTIVE_FUNC_SIZE];
-        int adaptiveFHead, adaptiveFTail;
-        initAdaptiveF(adaptiveF, ADAPTIVE_FUNC_SIZE, adaptiveFHead, adaptiveFTail);
+        MiniList adaptiveF;
+        initAdaptiveF(&adaptiveF, forwardParams.numNodes,
+                      forwardParams.impactAlpha);
 
         float accumAlpha = 1.0f;
         uint32_t contributor = 0;
@@ -1277,37 +1267,38 @@ namespace gscuda
 
                 if (forwardParams.adaptiveOIT)
                 {
-                    // Use premultiplied colors
-                    float depth = collectedDepths[j];
-                    int nodeIdx = testAdaptiveFLocation(adaptiveF, ADAPTIVE_FUNC_SIZE,
-                                                        adaptiveFHead, depth);
-                    if (nodeIdx == -1)
+                    const float depth = collectedDepths[j];
+                    if (depth > adaptiveF.maxDepth &&
+                        adaptiveF.numInserted >= adaptiveF.numNodes)
                     {
+                        // No point in traversing the LL and
+                        // evaluating this anymore.
                         continue;
                     }
+
+                    // Use premultiplied colors
                     float alpha = obtainAlpha(pix, width, height, ellipse, conicOpacity,
                                           screenSpace, forwardParams);
 
-                    if (alpha < IMPACT_ALPHA)
+                    if (alpha < forwardParams.impactAlpha)
                     {
                         continue;
                     }
 
                     insertAdaptiveF(
-                        adaptiveF, ADAPTIVE_FUNC_SIZE, nodeIdx,
+                        &adaptiveF,
                         collectedDepths[j], collectedIds[j],
-                        alpha, alpha * collectedColors[j],
-                        adaptiveFHead, adaptiveFTail);
+                        alpha, alpha * collectedColors[j]);
                 }
                 else
                 {
                     float alpha = obtainAlpha(pix, width, height, ellipse, conicOpacity,
                                           screenSpace, forwardParams);
 
-                    if (alpha < 1.0f / 255.0f)
-                    {
-                        continue;
-                    }
+                    // if (alpha < 1.0f / 255.0f)
+                    // {
+                    //     continue;
+                    // }
 
                     // Test the remaining alpha and see if it makes sense to continue the blend.
                     float testNewAlpha = accumAlpha * (1.0f - alpha);
@@ -1330,20 +1321,20 @@ namespace gscuda
         // It is done. Write all things to output buffer
         if (inside)
         {
-            if (forwardParams.adaptiveOIT)
+            if (forwardParams.adaptiveOIT && adaptiveF.numInserted > 0)
             {
                 /**
                    If we are using adaptive OIT, then so far we have
                    not calculated anything whatsoever; we are only
                    starting the blend now.
                 */
-                int it = adaptiveFHead;
+                int it = adaptiveF.head;
                 float visibility = 1.0f;
-                while (it != -1 && adaptiveF[it].id != -1)
+                while (it != -1 && adaptiveF.nodes[it].id != -1)
                 {
-                    color += visibility * adaptiveF[it].color;
-                    visibility *= (1.0f - adaptiveF[it].alpha);
-                    it = adaptiveF[it].next;
+                    color += visibility * adaptiveF.nodes[it].color;
+                    visibility *= (1.0f - adaptiveF.nodes[it].alpha);
+                    it = adaptiveF.nodes[it].next;
                 }
             }
 

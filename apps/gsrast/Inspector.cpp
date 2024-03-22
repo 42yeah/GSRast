@@ -356,49 +356,49 @@ void Inspector::drawInspector()
 
             if (ImGui::CollapsingHeader("Debug"))
             {
-		if (ImGui::Button("Test adaptive OIT construction"))
-		{
-		    // gscuda::MiniNode nodes[5];
-		    // int head, tail;
-		    // gscuda::initAdaptiveFHost(nodes, 5, head, tail);
-		    // std::uniform_real_distribution<float> distrib;
-		    // std::random_device dev;
-		    // for (int i = 0; i < 1000; i++)
-		    // {
-		    // 	int id = (int) (distrib(dev) * 10000000);
-		    // 	float depth = distrib(dev);
-		    // 	float alpha = powf(distrib(dev), 3.0f);
-		    // 	glm::vec3 color = glm::vec3(distrib(dev), distrib(dev), distrib(dev));
-		    // 	gscuda::insertAdaptiveFHost(nodes, 5, depth, id, alpha,
-		    // 				    &color[0], head, tail);
-		    // }
+                if (ImGui::Button("Test adaptive OIT construction"))
+                {
+                    // gscuda::MiniNode nodes[5];
+                    // int head, tail;
+                    // gscuda::initAdaptiveFHost(nodes, 5, head, tail);
+                    // std::uniform_real_distribution<float> distrib;
+                    // std::random_device dev;
+                    // for (int i = 0; i < 1000; i++)
+                    // {
+                    //  int id = (int) (distrib(dev) * 10000000);
+                    //  float depth = distrib(dev);
+                    //  float alpha = powf(distrib(dev), 3.0f);
+                    //  glm::vec3 color = glm::vec3(distrib(dev), distrib(dev), distrib(dev));
+                    //  gscuda::insertAdaptiveFHost(nodes, 5, depth, id, alpha,
+                    //                              &color[0], head, tail);
+                    // }
 
-		    // std::cout << "The done deal:" << std::endl;
-		    // int it = head;
-		    // while (it != -1)
-		    // {
-		    // 	std::cout << nodes[it].depth << " " << nodes[it].alpha << " "
-		    // 		  << nodes[it].color.r << " " << nodes[it].color.g << " "
-		    // 		  << nodes[it].color.b << std::endl;
-		    // 	it = nodes[it].next;
-		    // }
-		}
-		if (startTable())
-		{
-		    ImGuiIO &io = ImGui::GetIO();
-		    const ImVec2 &mousePos = io.MousePos;
-		    inspectFloat2("Mouse pos", &mousePos.x);
-		    ImVec2 blockPos = { mousePos.x / BLOCK_X, (_rastWindow->getHeight() - mousePos.y) / BLOCK_Y };
-		    inspectFloat2("Block pos", &blockPos.x);
+                    // std::cout << "The done deal:" << std::endl;
+                    // int it = head;
+                    // while (it != -1)
+                    // {
+                    //  std::cout << nodes[it].depth << " " << nodes[it].alpha << " "
+                    //            << nodes[it].color.r << " " << nodes[it].color.g << " "
+                    //            << nodes[it].color.b << std::endl;
+                    //  it = nodes[it].next;
+                    // }
+                }
+                if (startTable())
+                {
+                    ImGuiIO &io = ImGui::GetIO();
+                    const ImVec2 &mousePos = io.MousePos;
+                    inspectFloat2("Mouse pos", &mousePos.x);
+                    ImVec2 blockPos = { mousePos.x / BLOCK_X, (_rastWindow->getHeight() - mousePos.y) / BLOCK_Y };
+                    inspectFloat2("Block pos", &blockPos.x);
 
-		    GSGaussians::Ptr gaussian = _rastWindow->getRenderSelector()->getPtr<GSGaussians>();
-		    gscuda::ForwardParams params = gaussian->getForwardParams();
-		    params.highlightBlockX = blockPos.x;
-		    params.highlightBlockY = blockPos.y;
-		    gaussian->setForwardParams(params);
+                    GSGaussians::Ptr gaussian = _rastWindow->getRenderSelector()->getPtr<GSGaussians>();
+                    gscuda::ForwardParams params = gaussian->getForwardParams();
+                    params.highlightBlockX = blockPos.x;
+                    params.highlightBlockY = blockPos.y;
+                    gaussian->setForwardParams(params);
 
-		    endTable();
-		}
+                    endTable();
+                }
             }
         }
     }
@@ -517,6 +517,14 @@ void Inspector::drawInterfaces()
             }
 
             edited |= ImGui::Checkbox("Adaptive OIT", &params.adaptiveOIT);
+            if (params.adaptiveOIT)
+            {
+                ImGui::SeparatorText("Adaptive OIT params");
+                edited |= ImGui::SliderFloat("Impact alpha", &params.impactAlpha, 0.0f, 1.0f);
+                edited |= ImGui::SliderInt("Linked list size", &params.numNodes, 2, ADAPTIVE_FUNC_SIZE);
+
+                ImGui::Separator();
+            }
 
             if (edited)
             {

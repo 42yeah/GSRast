@@ -108,9 +108,9 @@ protected:
     void inspectInt(const char *key, int v);
     void inspectMat(int rows, int cols, const char *key, const float *v);
     void inspectEllipsoid(const char *key,
-			  const gscuda::gs::MathematicalEllipsoid &ellipsoid);
+                          const gscuda::gs::MathematicalEllipsoid &ellipsoid);
     void inspectEllipse(const char *key,
-			const gscuda::gs::MathematicalEllipse &ellipse);
+                        const gscuda::gs::MathematicalEllipse &ellipse);
 
     /**
        drawOverlay is split into two parts: inspector and
